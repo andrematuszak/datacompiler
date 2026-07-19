@@ -1,0 +1,11 @@
+pdf2image
+requests
+mistralai
+gradio
+torch
+torchvision
+transformers
+accelerate
+qwen-vl-utils
+pdf2image
+pillow

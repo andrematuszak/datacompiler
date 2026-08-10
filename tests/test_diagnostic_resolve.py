@@ -1,10 +1,8 @@
 import json
 
-import pytest
-
-from model import BBox, Document, Page, Word
-from frontend.diagnostic import diagnostiquer, pages_a_ocriser
-from compile import resoudre
+from datacompiler.model import BBox, Document, Page, Word
+from datacompiler.frontend.diagnostic import diagnostiquer, pages_a_ocriser
+from datacompiler.compile import resoudre
 
 
 def w(id, text, x0, y0, x1, y1):

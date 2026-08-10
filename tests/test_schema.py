@@ -1,9 +1,9 @@
 import sys, json
 sys.path.insert(0, ".")
 
-from document import Document, Page, Word, BBox
-from diagnostic import diagnostiquer, pages_a_ocriser
-from resolve import resoudre
+from datacompiler.model.document import Document, Page, Word, BBox
+from datacompiler.frontend.diagnostic import diagnostiquer, pages_a_ocriser
+from datacompiler.compile import resoudre
 
 
 def w(id, text, x0, y0, x1, y1):

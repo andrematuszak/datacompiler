@@ -1,5 +1,5 @@
 # tests/test_diagnostic.py
-from datacleaner.core.diagnostic import analyser_qualite
+from datacompiler.frontend.diagnostic import analyser_qualite
 
 def test_analyser_qualite_texte_valide():
     """Vérifie que la fonction renvoie un statut OK pour un texte propre."""

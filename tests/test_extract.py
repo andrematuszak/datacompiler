@@ -1,5 +1,5 @@
 # tests/test_extract.py
-from datacleaner.core.extract import extraire
+from datacompiler.frontend.extract import extraire
 
 def test_extraire_pages_non_vides():
     # 1. ARRANGE : On pointe vers notre fixture

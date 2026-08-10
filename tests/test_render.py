@@ -1,8 +1,8 @@
 # tests/test_render.py
 import os
-from datacleaner.core.extract import extraire
-from datacleaner.core.document import Document
-from datacleaner.renderers.faithful_pdf import reconstruire_pdf_direct
+from datacompiler.frontend.extract import extraire
+from datacompiler.model.document import Document
+from datacompiler.backend.faithful_pdf import reconstruire_pdf_direct
 
 def test_generation_pdf_depuis_fixture(tmp_path):
     """

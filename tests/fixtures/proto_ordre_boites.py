@@ -211,144 +211,58 @@ def chevauchement_vertical(a, b):
         return 0.0
     return inter / plus_petite_hauteur
 
-def nombre_lignes_boite(boite, tolerance=TOLERANCE_LIGNE):
-    lignes = _grouper_lignes_par_tolerance(boite.mots, tolerance)
-    return len(lignes)
 
-def diagnostiquer_absorption(
-    rangees,
-    seuil_ratio=3.0,
-    tolerance_ligne=TOLERANCE_LIGNE,
-):
-    """
-    Signale les différences de hauteur importantes dans une rangée.
-
-    Une boîte multi-lignes est signalée comme candidat légitime plutôt que
-    comme absorption certaine.
-    """
+def diagnostiquer_absorption(rangees, seuil_ratio=3.0):
+    """Alerte sur les rangées où une boîte est nettement plus haute que les
+    autres membres -- signature du même risque qui a fait échouer une
+    première tentative de détection de colonnes par chevauchement de
+    segments dans reading_order.py ('la marge de gauche touche presque
+    tout par construction'). Ici, une boîte native qui engloberait toute la
+    hauteur d'un tableau sans bordures n'a besoin de chevaucher que
+    SEUIL_CHEVAUCHEMENT_RANGEE (30%) de la hauteur d'une petite boîte pour
+    l'absorber dans sa rangée -- et transitivement, tout ce qui touche
+    cette petite boîte aussi, même sans jamais toucher la grosse boîte
+    directement."""
     alertes = []
-
     for i, rangee in enumerate(rangees):
         if len(rangee) < 2:
             continue
-
-        infos = []
-
-        for boite in rangee:
-            hauteur = hauteur_boite(boite)
-            nb_lignes = nombre_lignes_boite(boite, tolerance_ligne)
-            hauteur_moyenne = hauteur / max(nb_lignes, 1)
-
-            infos.append({
-                "boite": boite,
-                "hauteur": hauteur,
-                "nb_lignes": nb_lignes,
-                "hauteur_moyenne": hauteur_moyenne,
-            })
-
-        h_max = max(info["hauteur"] for info in infos)
-        h_min = min(info["hauteur"] for info in infos)
-
-        if h_min <= 0 or h_max / h_min < seuil_ratio:
-            continue
-
-        grosse = max(infos, key=lambda info: info["hauteur"])
-        petite = min(infos, key=lambda info: info["hauteur"])
-
-        alertes.append({
-            "rangee": i,
-            "grosse": grosse,
-            "petite": petite,
-            "ratio": h_max / h_min,
-            "multi_lignes": grosse["nb_lignes"] > 1,
-        })
-
+        hauteurs = [(b, b.y1 - b.y0) for b in rangee]
+        h_max = max(h for _, h in hauteurs)
+        h_min = min(h for _, h in hauteurs)
+        if h_min > 0 and h_max / h_min >= seuil_ratio:
+            grosse = next(b for b, h in hauteurs if h == h_max)
+            petite = next(b for b, h in hauteurs if h == h_min)
+            alertes.append((i, grosse, petite, h_max / h_min))
     return alertes
 
-TOLERANCE_RANGEE = 4.0
 
-
-def centre_vertical(boite):
-    return (boite.y0 + boite.y1) / 2.0
-
-
-def hauteur_boite(boite):
-    return max(0.0, boite.y1 - boite.y0)
-
-
-def meme_rangee(boite, rangee, tolerance=TOLERANCE_RANGEE):
-    """
-    Détermine si une boîte appartient à une rangée existante.
-
-    On compare le centre vertical avec le centre représentatif de la rangée,
-    au lieu d'utiliser un chevauchement transitif entre toutes les boîtes.
-    """
-    if not rangee:
-        return False
-
-    centres = [centre_vertical(b) for b in rangee]
-    centre_rangee = sorted(centres)[len(centres) // 2]
-
-    return abs(centre_vertical(boite) - centre_rangee) <= tolerance
-
-
-def ordonner_par_boites(boites, tolerance=TOLERANCE_RANGEE):
-    """
-    Regroupe les boîtes par proximité de centre vertical.
-
-    Contrairement à l'ancienne version, une boîte ne peut pas rejoindre une
-    rangée uniquement parce qu'elle chevauche indirectement une autre boîte.
-    """
-    boites_triees = sorted(
-        boites,
-        key=lambda b: (centre_vertical(b), b.x0, b.id)
-    )
-
+def ordonner_par_boites(boites, seuil=SEUIL_CHEVAUCHEMENT_RANGEE):
+    boites_triees = sorted(boites, key=lambda b: b.y0)
     rangees = []
+    rangee_courante = []
 
     for boite in boites_triees:
-        candidates = [
-            rangee for rangee in rangees
-            if meme_rangee(boite, rangee, tolerance)
-        ]
-
-        if not candidates:
-            rangees.append([boite])
+        if not rangee_courante:
+            rangee_courante = [boite]
             continue
-
-        # Choisir la rangée dont le centre est le plus proche.
-        rangee = min(
-            candidates,
-            key=lambda r: abs(
-                centre_vertical(boite)
-                - sorted(centre_vertical(b) for b in r)[len(r) // 2]
-            )
-        )
-        rangee.append(boite)
-
-    # Tri vertical strict des rangées.
-    rangees.sort(
-        key=lambda r: (
-            sorted(centre_vertical(b) for b in r)[len(r) // 2],
-            min(b.x0 for b in r),
-        )
-    )
+        # chevauche significativement avec AU MOINS une boîte déjà dans la rangée ?
+        if any(chevauchement_vertical(boite, b) >= seuil for b in rangee_courante):
+            rangee_courante.append(boite)
+        else:
+            rangees.append(rangee_courante)
+            rangee_courante = [boite]
+    if rangee_courante:
+        rangees.append(rangee_courante)
 
     resultat = []
     trace = []
-
     for rangee in rangees:
-        # x0 est prioritaire dans une vraie rangée horizontale.
-        # y0 sert de tie-breaker pour deux boîtes presque alignées.
-        rangee_triee = sorted(
-            rangee,
-            key=lambda b: (b.x0, b.y0, b.id)
-        )
-
+        rangee_triee = sorted(rangee, key=lambda b: b.x0)
         trace.append(rangee_triee)
         resultat.extend(rangee_triee)
-
     return resultat, trace
+
 
 # ---------------------------------------------------------------------------
 # 3. Exécution + vérifications
@@ -356,7 +270,7 @@ def ordonner_par_boites(boites, tolerance=TOLERANCE_RANGEE):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("json_path", nargs="?", default="test-impots-revenu.document.json")
+    parser.add_argument("json_path", nargs="?", default="/mnt/user-data/uploads/test-impots-revenu_document.json")
     parser.add_argument("--page", type=int, default=2,
                          help="Page à traiter (1-indexé). Défaut : 2 -- le tableau financier "
                               "sans bordures qui échappe à find_tables() est page 2, pas page 1.")
@@ -411,50 +325,20 @@ def main():
     # qui n'a besoin de chevaucher que 30% de la hauteur d'une petite pour
     # l'absorber peut entraîner tout un tas d'éléments sans lien réel entre
     # eux dans la même rangée, avant de tout trier par x0.
-    print(
-        "=== Vérification anti-absorption "
-        "(boîtes de hauteur très inégale dans une même rangée) ==="
-    )
-
+    print("=== Vérification anti-absorption (boîtes de hauteur très inégale dans une même rangée) ===")
     alertes_absorption = diagnostiquer_absorption(rangees)
-
     if not alertes_absorption:
-        print(
-            "  Aucune différence de hauteur significative "
-            "dans les rangées."
-        )
+        print("  Aucune absorption suspecte détectée (ratio hauteur max/min < 3.0 dans toutes les rangées).")
+    for i, grosse, petite, ratio in alertes_absorption:
+        print(f"  RISQUE : rangée {i} -- {grosse.id} (hauteur={grosse.y1 - grosse.y0:.1f}pt) "
+              f"vs {petite.id} (hauteur={petite.y1 - petite.y0:.1f}pt), ratio={ratio:.1f}x. "
+              f"Vérifier si {grosse.id} regroupe légitimement plusieurs lignes ou si elle a "
+              f"absorbé à tort des éléments sans rapport.")
+    print()
 
-    for alerte in alertes_absorption:
-        grosse = alerte["grosse"]
-        petite = alerte["petite"]
-
-        boite_grosse = grosse["boite"]
-        boite_petite = petite["boite"]
-
-        if alerte["multi_lignes"]:
-            niveau = "INFO"
-            interpretation = (
-                "boîte multi-lignes : différence probablement légitime, "
-                "mais à vérifier visuellement"
-            )
-        else:
-            niveau = "RISQUE"
-            interpretation = (
-                "boîte mono-ligne très haute : possible absorption incorrecte"
-            )
-
-        print(
-            f"  {niveau} : rangée {alerte['rangee']} -- "
-            f"{boite_grosse.id} "
-            f"(hauteur={grosse['hauteur']:.1f}pt, "
-            f"lignes={grosse['nb_lignes']}) vs "
-            f"{boite_petite.id} "
-            f"(hauteur={petite['hauteur']:.1f}pt, "
-            f"lignes={petite['nb_lignes']}), "
-            f"ratio={alerte['ratio']:.1f}x ; "
-            f"{interpretation}."
-        )
-
+    print("=== Ordre de lecture résultant (boîte par boîte) ===")
+    for b in ordre:
+        print(" ", b)
     print()
 
     # --- Vérification : saut arrière ENTRE RANGÉES (pas entre boîtes --

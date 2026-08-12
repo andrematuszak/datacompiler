@@ -237,7 +237,7 @@ def diagnostiquer_absorption(rangees, seuil_ratio=3.0):
     return alertes
 
 
-
+def ordonner_par_boites(boites, seuil=SEUIL_CHEVAUCHEMENT_RANGEE):
     boites_triees = sorted(boites, key=lambda b: b.y0)
     rangees = []
     rangee_courante = []

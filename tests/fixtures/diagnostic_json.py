@@ -161,6 +161,8 @@ def cmd_chercher(args):
         mots = page.get("resolved", {}).get("words", [])
 
         for i, mot in enumerate(mots):
+            if args.reconstructed and not mot.get("reconstructed"):
+                continue
             if args.texte and args.texte.lower() not in texte_affiche(mot).lower():
                 continue
             if args.source and (mot.get("source") or "native") != args.source:
@@ -389,6 +391,7 @@ def main():
 
     p = sous.add_parser("chercher", help="Recherche de texte dans resolved.words.")
     p.add_argument("fichier")
+    p.add_argument("--reconstructed", action="store_true", help="Afficher uniquement les mots avec reconstructed=True.")
     p.add_argument("--texte", default="", help="Sous-chaîne recherchée (insensible à la casse).")
     p.add_argument("--page", type=int, default=None)
     p.add_argument("--source", default=None, help="Filtre exact, ex. ocr_vectoriel, native.")

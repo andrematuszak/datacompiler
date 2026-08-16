@@ -29,8 +29,13 @@ import pytest
 
 def _normaliser(mot: str) -> str:
     """Normalisation minimale avant comparaison -- les espaces en bord de
-    mot ne doivent pas compter comme une vraie différence de contenu."""
-    return mot.strip()
+    mot ne doivent pas compter comme une vraie différence de contenu.
+
+    Convertit aussi les soft hyphens (\\xad) en tirets (-) : fitz les
+    produit lors de la lecture du PDF reconstruit (get_text("words")),
+    alors que le JSON contient le tiret normal. C'est un artefact de
+    lecture, pas une différence de contenu."""
+    return mot.strip().replace("\xad", "-")
 
 
 def _mots_json(resolved_words: list) -> list:

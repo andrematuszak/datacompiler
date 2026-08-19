@@ -46,7 +46,7 @@ Scan (photo, pas scanner à plat), 0 texte natif, manuscrit. **Vrai test Tessera
 Polices CID Type0C, texte natif déjà corrompu (`nOU8`=nous, `contesu`=conteste, `�` de remplacement). `native_text_quality` existant = 0.881, se déclenche déjà correctement (via `SUSPECT_PATTERN` sur le `�`, pas via les nouveaux ajouts). `mots_suspects_ngrammes` peu exploitable ici (199 mots, échantillon trop petit) — a servi de déclencheur pour `qualite_avec_confiance()`, validé sur des cas synthétiques inspirés de ce fichier (même caractère suspect isolé : 0.17 sur un titre court vs 0.99 sur une page normale).
 
 ### test.pdf — Papier IEEE 2 colonnes (arXiv)
-Fichier de référence pour `reading_order.py`. Bug initial total (colonnes entrelacées) corrigé après plusieurs itérations : seuil de gouttière adaptatif (détection bimodale par saut, pas médiane simple), exclusion des lignes pleine largeur du calcul de colonnes, scission des lignes fusionnées par coïncidence de hauteur. Validé : 655/655 mots conservés, ordre colonne-majeur correct, note de bas de page (colonne gauche uniquement) placée correctement sans logique dédiée. **Texte pivoté** (filigrane arXiv) trouvé inversé via `pdfplumber.extract_words()` — mais `page.chars` brut (ordre du flux) est correct ; bug probablement spécifique à `pdfplumber`, jamais confirmé avec le vrai `fitz`.
+Fichier de référence pour `reading_order.py`. Bug initial total (colonnes entrelacées) corrigé après plusieurs itérations : seuil de gouttière adaptatif (détection bimodale par saut, pas médiane simple), exclusion des lignes pleine largeur du calcul de colonnes, scission des lignes fusionnées par coïncidence de hauteur. Validé : 655/655 mots conservés, ordre colonne-majeur correct, note de bas de page (colonne gauche uniquement) placée correctement sans logique dédiée. **Texte pivoté** (filigrane arXiv) trouvé inversé via `pdfplumber.extract_words()` — mais `page.chars` brut (ordre du flux) est correct ; bug probablement spécifique à `pdfplumber`, jamais confirmé avec le vrai `pymupdf`.
 
 ### test-sans-bordures.pdf — Rapport NREL (économies carburant)
 Pensé sans bordures, en fait 168 rects fins (0.48pt) agissant comme filets. `find_tables()` extrait correctement le tableau en entier, en-tête fusionné inclus. Pas un cas de perte.
@@ -83,8 +83,8 @@ Pensé sans bordures, en fait 168 rects fins (0.48pt) agissant comme filets. `fi
 
 ### A. Déjà commencés, jamais finis avec les vrais outils
 - **Tesseract avec les vrais paquets de langue** (`tesseract-ocr-fra`, `-deu`, `-lit`) — tous les résultats de langue de cette session utilisent le modèle anglais par défaut.
-- **Texte pivoté avec le vrai `fitz`** — bug trouvé côté `pdfplumber` uniquement, jamais confirmé/infirmé avec PyMuPDF.
-- **`reading_order.py` avec le vrai `fitz`** — construit et validé uniquement via `pdfplumber` en substitut.
+- **Texte pivoté avec le vrai `pymupdf`** — bug trouvé côté `pdfplumber` uniquement, jamais confirmé/infirmé avec PyMuPDF.
+- **`reading_order.py` avec le vrai `pymupdf`** — construit et validé uniquement via `pdfplumber` en substitut.
 - **Décision sur test7** (dictionnaire réel vs seuil assoupli pour `mots_suspects_ngrammes`) — jamais tranchée.
 
 ### B. Jamais testés du tout (pas de fichier, ou fichier jamais essayé)

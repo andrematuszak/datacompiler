@@ -23,7 +23,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-import fitz
+import pymupdf
 import pytest
 
 
@@ -31,7 +31,7 @@ def _normaliser(mot: str) -> str:
     """Normalisation minimale avant comparaison -- les espaces en bord de
     mot ne doivent pas compter comme une vraie différence de contenu.
 
-    Convertit aussi les soft hyphens (\\xad) en tirets (-) : fitz les
+    Convertit aussi les soft hyphens (\\xad) en tirets (-) : pymupdf les
     produit lors de la lecture du PDF reconstruit (get_text("words")),
     alors que le JSON contient le tiret normal. C'est un artefact de
     lecture, pas une différence de contenu."""
@@ -43,7 +43,7 @@ def _mots_json(resolved_words: list) -> list:
 
     Un output_text avec un espace interne (mot composé reconstruit, ex.
     "CS 20009" stocké comme un seul Word) compte comme PLUSIEURS tokens
-    une fois rendu et relu par fitz.get_text("words") -- éclater ici évite
+    une fois rendu et relu par pymupdf.get_text("words") -- éclater ici évite
     de comparer des granularités différentes des deux côtés, qui aurait
     pu être la cause du delta 302 vs 268 observé avant régénération."""
     mots = []
@@ -87,7 +87,7 @@ def test_word_count_consistency():
     with open(json_doc, "r", encoding="utf-8") as f:
         doc_data = json.load(f)
 
-    doc_pdf = fitz.open(pdf_propre)
+    doc_pdf = pymupdf.open(pdf_propre)
 
     try:
         assert len(doc_pdf) == len(doc_data["pages"]), "Nombre de pages incohérent entre JSON et PDF"

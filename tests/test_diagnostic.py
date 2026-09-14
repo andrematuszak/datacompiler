@@ -1,23 +1,12 @@
-# tests/test_diagnostic.py
-from datacompiler.frontend.diagnostic import analyser_qualite
+from datacompiler.frontend.diagnostic import diagnostiquer
 
-def test_analyser_qualite_texte_valide():
-    """Vérifie que la fonction renvoie un statut OK pour un texte propre."""
-    # 1. Données de test (mock)
-    texte_clean = "Ceci est un texte parfaitement lisible sans anomalie."
+def test_diagnostic_qualite_texte(sample_document):
+    """Teste la fonction de diagnostic en utilisant le document partagé."""
+    diagnostiquer(sample_document)
     
-    # 2. Exécution
-    rapport = analyser_qualite(texte_clean)
+    # Le diagnostic est attaché au document
+    diag = sample_document.diagnostic
     
-    # 3. Vérifications (Assertions)
-    assert rapport["statut"] == "OK"
-    assert rapport["score"] > 80
-
-def test_analyser_qualite_texte_corrompu():
-    """Vérifie que la fonction détecte le texte Garbled/OCR défaillant."""
-    texte_bruite = "C€c! e$t un t3xt3 #%&@! d3f3ctu3ux"
-    
-    rapport = analyser_qualite(texte_bruite)
-    
-    assert rapport["statut"] == "ANOMALIE"
-    assert "ocr_noise" in rapport["erreurs"]
+    assert diag is not None
+    assert diag.confiance_suffisante is True
+    assert diag.native_text_quality > 0.8

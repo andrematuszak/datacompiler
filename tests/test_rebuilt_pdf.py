@@ -1,4 +1,4 @@
-"""test_rebuilt_pdf_regression.py — Non-régression pour rebuilt_pdf.py.
+"""test_rebuilt_pdf.py — Non-régression pour rebuilt_pdf.py.
 
 Fait tourner le VRAI rebuilt_pdf.py (import direct, non réécrit) contre un
 faux module `pymupdf` (pymupdf_stub.py) et un modèle Document minimal, pour
@@ -27,11 +27,18 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.dirname(__file__))
 
-import pymupdf_stub
-sys.modules["pymupdf"] = pymupdf_stub
-
 import importlib
-import rebuilt_pdf
+
+import pytest
+import pymupdf_stub
+from datacompiler.backend import rebuilt_pdf
+
+
+@pytest.fixture(autouse=True)
+def stub_pymupdf(monkeypatch):
+    monkeypatch.setattr(rebuilt_pdf, "pymupdf", pymupdf_stub)
+    
+from datacompiler.backend import rebuilt_pdf
 importlib.reload(rebuilt_pdf)  # au cas où déjà importé avec l'ancien pymupdf réel
 
 from datacompiler.model.document import (
@@ -172,7 +179,10 @@ def test_pas_simple_sort_true():
     MENTIONNE ce piège (comme celui qui documente ce correctif) déclenche
     un faux positif."""
     import re
-    with open(os.path.join(os.path.dirname(__file__), "rebuilt_pdf.py"), encoding="utf-8") as f:
+    from pathlib import Path
+    rebuilt_pdf_path = Path(__file__).parent.parent / "src" / "datacompiler" / "backend" / "rebuilt_pdf.py"
+
+    with open(rebuilt_pdf_path, encoding="utf-8") as f:
         source = f.read()
     motif = re.compile(r"ordonner\([^)]*simple_sort\s*=\s*True[^)]*\)")
     trouve = motif.search(source)
@@ -181,10 +191,41 @@ def test_pas_simple_sort_true():
               f"trouvé : {trouve.group(0)!r}" if trouve else "")
 
 
+def test_espace_separateur_apres_chaque_mot():
+    """Deux mots OCR dont les bbox se touchent (0.6pt, cas GÉNÉRALE/DES)
+    doivent quand même produire un glyphe d'espace dans le TextWriter --
+    sinon MuPDF fusionne les tokens au rechargement."""
+    mots = [
+        Word(id=1, text="GÉNÉRALE", bbox=BBox(184.35, 18.54, 240.75, 30.06),
+             block=None, is_vectorized=True, reconstructed=True, font_size=0.0,
+             resolved_text="GÉNÉRALE"),
+        Word(id=2, text="DES", bbox=BBox(241.35, 19.99, 264.15, 30.07),
+             block=None, is_vectorized=True, reconstructed=True, font_size=0.0,
+             resolved_text="DES"),
+    ]
+    page_json = Page(
+        number=1, width=595.0, height=842.0,
+        native=NativeContainer(words=mots),
+        graphics=GraphicsContainer(tables=[]),
+        resolved=ResolvedContainer(words=mots),
+    )
+    doc = Document(pages=[page_json], metadata=Metadata(source_pdf="/fake/gap.pdf", filename="t.pdf"))
+    pymupdf_stub._FAKE_SOURCES["/fake/gap.pdf"] = [pymupdf_stub.Page(595, 842)]
+
+    _docs_crees.clear()
+    rebuilt_pdf.render_rebuilt_pdf(doc, "/tmp/test_gap.pdf", source_pdf="/fake/gap.pdf")
+    dst_page = _docs_crees[-1]._pages[0]
+    textes = [t for w in dst_page.writes for (_, t, _, _) in w["items"]]
+    verifier("Les deux mots sont insérés", "GÉNÉRALE" in textes and "DES" in textes)
+    verifier("Un espace séparateur est inséré entre les mots",
+             " " in textes, f"textes insérés = {textes}")
+
+
 if __name__ == "__main__":
     test_id_coherence_couleur_echantillonnee()
     test_natif_pas_de_recalage()
     test_pas_simple_sort_true()
+    test_espace_separateur_apres_chaque_mot()
 
     print()
     if echecs:

@@ -1,13 +1,17 @@
-# tests/test_extract.py
+from datacompiler import Document
 from datacompiler.frontend.extract import extraire
 
-def test_extraire_pages_non_vides():
-    # 1. ARRANGE : On pointe vers notre fixture
-    pdf_path = "tests/fixtures/test1.pdf"
+def test_extraction_pdf(sample_pdf):
+    """Teste l'extraction à partir du fichier PDF partagé."""
+    doc = Document()
+    extraire(doc, str(sample_pdf))
     
-    # 2. ACT : On exécute la fonction
-    donnees = extraire(pdf_path)
+    assert len(doc.pages) > 0
+    page = doc.pages[0]
     
-    # 3. ASSERT : On vérifie que le résultat est correct
-    assert donnees is not None, "L'extraction a renvoyé None !"
-    assert len(donnees) > 0, "Aucune page n'a été extraite du PDF !"
+    # Vérifie que des mots natifs ont bien été extraits de la première page
+    assert len(page.native.words) > 0
+    
+    # Reconstitution du texte à partir des mots
+    texte_page = " ".join(w.text for w in page.native.words)
+    assert texte_page != ""

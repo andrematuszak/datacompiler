@@ -32,11 +32,22 @@ class Point:
 
 
 class Rect:
-    def __init__(self, x0, y0, x1, y1):
-        self.x0, self.y0, self.x1, self.y1 = x0, y0, x1, y1
+    def __init__(self, x0=0.0, y0=0.0, x1=0.0, y1=0.0):
+        self.x0 = float(x0)
+        self.y0 = float(y0)
+        self.x1 = float(x1)
+        self.y1 = float(y1)
 
     def get_area(self):
         return max(0.0, self.x1 - self.x0) * max(0.0, self.y1 - self.y0)
+
+    @property
+    def width(self):
+        return self.x1 - self.x0
+
+    @property
+    def height(self):
+        return self.y1 - self.y0
 
     @property
     def is_empty(self):
@@ -45,6 +56,11 @@ class Rect:
     def __and__(self, other):
         x0, y0 = max(self.x0, other.x0), max(self.y0, other.y0)
         x1, y1 = min(self.x1, other.x1), min(self.y1, other.y1)
+        return Rect(x0, y0, x1, y1)
+
+    def __or__(self, other):
+        x0, y0 = min(self.x0, other.x0), min(self.y0, other.y0)
+        x1, y1 = max(self.x1, other.x1), max(self.y1, other.y1)
         return Rect(x0, y0, x1, y1)
 
     def __repr__(self):

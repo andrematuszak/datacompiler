@@ -31,6 +31,11 @@ class Point:
         return f"Point({self.x}, {self.y})"
 
 
+class Matrix:
+    def __init__(self, a=1, b=0, c=0, d=1, e=0, f=0):
+        self.a, self.b, self.c, self.d, self.e, self.f = a, b, c, d, e, f
+
+
 class Rect:
     def __init__(self, x0=0.0, y0=0.0, x1=0.0, y1=0.0):
         self.x0 = float(x0)

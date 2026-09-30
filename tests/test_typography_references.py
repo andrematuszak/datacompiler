@@ -36,13 +36,13 @@ def test_renvoi_14_est_petit_et_aligne_sur_la_ligne_de_base():
     )
 
     assert reference.text == "14"
-    assert reference.font_size == 8.0
+    assert reference.font_size == pytest.approx(9.5 * 8 / 12)
     assert baseline_reference == pytest.approx(baseline_ligne)
     assert reference.notes[-1].endswith("aligné sur la ligne de base")
     spans = _grouper_en_spans(resultat)
     assert [(span["textes"], span["size"]) for span in spans] == [
         (["soumis", "au", "barème"], 9.5),
-        (["14"], 8.0),
+        (["14"], pytest.approx(9.5 * 8 / 12)),
     ]
 
 
@@ -62,7 +62,7 @@ def test_renvoi_20_est_separe_des_pointilles_et_elargi_sans_decalage_vertical():
     reference, pointilles = resultat[-2:]
 
     assert reference.text == "20"
-    assert reference.font_size == 8.0
+    assert reference.font_size == pytest.approx(9.5 * 8 / 12)
     assert pointilles.text == ".........................."
     assert pointilles.font_size == 9.5
     assert pointilles.bbox.x0 == pytest.approx(reference.bbox.x1)
@@ -85,7 +85,7 @@ def test_renvoi_53_est_separe_de_deux_points_et_aligne_sur_la_ligne():
     reference, deux_points = resultat[-2:]
 
     assert reference.text == "53"
-    assert reference.font_size == 8.0
+    assert reference.font_size == pytest.approx(9.5 * 8 / 12)
     assert deux_points.text == ":"
     assert deux_points.font_size == 9.5
     assert deux_points.bbox.x0 == pytest.approx(reference.bbox.x1)

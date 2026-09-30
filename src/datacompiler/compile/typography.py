@@ -43,7 +43,7 @@ _RENVOIS_REFERENCE = {
     "20": "total des reductions d'impot",
     "53": "impot sur le revenu 2020 du",
 }
-_TAILLE_RENVOI = 8.0
+_RATIO_TAILLE_RENVOI = 8.0 / 12.0
 _TAILLE_SOURCE_RENVOI = 6.0
 
 
@@ -80,11 +80,25 @@ def _baseline_ligne(mots, mot):
     return sorted(baselines)[len(baselines) // 2] if baselines else None
 
 
+def _taille_corps_ligne(mots, mot):
+    tailles = [
+        pair.font_size
+        for pair in mots
+        if pair is not mot
+        and pair.block == mot.block
+        and pair.line == mot.line
+        and pair.font_size >= 8.5
+    ]
+    return sorted(tailles)[len(tailles) // 2] if tailles else None
+
+
 def _mettre_renvoi_sur_ligne(mot, mots, largeur_source):
     baseline = _baseline_ligne(mots, mot)
-    if baseline is None:
+    taille_corps = _taille_corps_ligne(mots, mot)
+    if baseline is None or taille_corps is None:
         return
 
+    taille_renvoi = taille_corps * _RATIO_TAILLE_RENVOI
     police = pymupdf.Font(mot.font)
     ascender = police.ascender
     descender = police.descender
@@ -92,16 +106,18 @@ def _mettre_renvoi_sur_ligne(mot, mots, largeur_source):
         ascender /= 1000.0
     if descender < -10.0:
         descender /= 1000.0
-    largeur_cible = police.text_length(mot.text[:2], fontsize=_TAILLE_RENVOI)
+    largeur_cible = police.text_length(mot.text[:2], fontsize=taille_renvoi)
     decalage_largeur = largeur_cible - largeur_source
-    mot.font_size = _TAILLE_RENVOI
+    mot.font_size = taille_renvoi
     mot.bbox = BBox(
         mot.bbox.x0,
-        baseline - ascender * _TAILLE_RENVOI,
+        baseline - ascender * taille_renvoi,
         mot.bbox.x0 + largeur_cible,
-        baseline - descender * _TAILLE_RENVOI,
+        baseline - descender * taille_renvoi,
     )
-    mot.notes.append("renvoi de référence en corps 8, aligné sur la ligne de base")
+    mot.notes.append(
+        "renvoi de référence à 8/12 du corps et aligné sur la ligne de base"
+    )
     return decalage_largeur
 
 

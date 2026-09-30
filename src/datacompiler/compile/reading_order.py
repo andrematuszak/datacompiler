@@ -591,21 +591,47 @@ def ordonner(page, simple_sort=False) -> list:
     boites_natives = _construire_boites_natives(natifs)
     boites_vectorisees = _construire_boites_vectorisees(vectos)
     _boites_plates, _rangees = _ordonner_par_boites(boites_natives + boites_vectorisees)
+    reperes_rangees = {
+        id(boite): min(membre.y0 for membre in rangee)
+        for rangee in _rangees
+        for boite in rangee
+    }
     _rangees_def, reperes_satellites = _deferer_satellites(_rangees)
-    boites_ordonnees = [b for rangee in _rangees_def for b in rangee]
 
-    # 4. FUSION FINALE : chaque boîte hors-encadré (déjà dans le bon ordre
-    #    rangées/x0 entre elles) et chaque encadré (ordonné en interne par
-    #    _ordonner_sous_ensemble) devient un ITEM (y0_repere, mots),
-    #    positionné par un TRI STABLE sur y0 uniquement -- jamais par
-    #    chevauchement. C'est ce qui reproduit le motif "zigzag" de l'ordre
+    # 4. FUSION FINALE : chaque rangée hors-encadré et chaque encadré
+    #    (ordonné en interne par _ordonner_sous_ensemble) devient un ITEM
+    #    (y0_repere, mots), positionné par un TRI STABLE sur y0 uniquement
+    #    -- jamais par chevauchement. Les mots des boîtes d'une même rangée
+    #    sont mêlés gauche->droite : une boîte native peut contenir plusieurs
+    #    valeurs séparées par un libellé vectorisé, comme « Feuillet n° ».
+    #    Les satellites différés restent des items séparés pour conserver
+    #    leur position après la pile. C'est ce qui reproduit le motif "zigzag"
+    #    de l'ordre
     #    idéal (Vos références y0=167 -> BROUTIN y0=181 -> Somme... y0=289
     #    -> Vos contacts y0=368 -> Revenu fiscal... y0=589) sans jamais
     #    réabsorber un encadré dans une rangée voisine : chaque encadré
     #    reste un bloc contigu dans le résultat, quel que soit ce qui le
     #    chevauche verticalement par ailleurs.
-    items = [(reperes_satellites.get(id(boite), boite.y0), _grouper_par_ligne_tolerant(boite.mots))
-             for boite in boites_ordonnees]
+    items = []
+    for rangee in _rangees_def:
+        boites_normales = [
+            boite for boite in rangee if id(boite) not in reperes_satellites
+        ]
+        if boites_normales:
+            mots_rangee = [
+                mot for boite in boites_normales for mot in boite.mots
+            ]
+            y0_repere = min(reperes_rangees[id(boite)] for boite in boites_normales)
+            items.append((
+                y0_repere,
+                sorted(mots_rangee, key=lambda mot: mot.bbox.x0),
+            ))
+        for boite in rangee:
+            if id(boite) in reperes_satellites:
+                items.append((
+                    reperes_satellites[id(boite)],
+                    _grouper_par_ligne_tolerant(boite.mots),
+                ))
     for mots_encadre in mots_par_encadre.values():
         y0_repere = min(w.bbox.y0 for w in mots_encadre)
         items.append((y0_repere, _ordonner_sous_ensemble(mots_encadre)))

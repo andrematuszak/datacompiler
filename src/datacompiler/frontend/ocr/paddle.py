@@ -248,6 +248,41 @@ class PaddleOcrBackend(OcrBackend):
             ))
         return mots
 
+    def ocraliser_ponctuation(self, image: Image.Image, symbole: str,
+                              offset: tuple = (0.0, 0.0), dpi: int = None,
+                              **kwargs) -> list:
+        """OCR ciblé d'un ':' ou '/' déjà isolé par sa géométrie."""
+        if symbole not in (":", "/"):
+            return []
+
+        facteur = 3
+        image_agrandie = image.resize(
+            (image.width * facteur, image.height * facteur),
+            Image.Resampling.LANCZOS,
+        )
+        scale = (dpi or self.dpi) / 72.0 * facteur
+        dx, dy = offset
+        mots = []
+        for mot in self._extraire(image_agrandie):
+            if mot["text"].strip() != symbole:
+                continue
+            x0 = dx + mot["x0"] / scale
+            y0 = dy + mot["y0"] / scale
+            x1 = dx + mot["x1"] / scale
+            y1 = dy + mot["y1"] / scale
+            mots.append(Word(
+                id=-1,
+                text=symbole,
+                resolved_text=symbole,
+                bbox=BBox(x0, y0, x1, y1),
+                confidence=mot["confidence"],
+                source="ocr_vectoriel_paddle",
+                is_vectorized=True,
+                reconstructed=True,
+                notes=["ponctuation vectorielle récupérée par OCR ciblé (PaddleOCR)"],
+            ))
+        return mots
+
     def ocraliser(self, doc, pdf_path: str, pages: list = None, **kwargs):
         """OCR pleine page (requis par la classe abstraite OcrBackend)."""
         source = pymupdf.open(pdf_path)

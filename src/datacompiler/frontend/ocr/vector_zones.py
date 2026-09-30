@@ -31,8 +31,11 @@ from datacompiler.frontend.diagnostic.vector_text import zones_texte_vectorise_p
 from datacompiler.frontend.extract.extract_pymupdf import rendre_zone_image
 from datacompiler.frontend.ocr.fusion_ocr import fusionner_zone_multi_backend
 from datacompiler.model.document import BBox, Document
+from datacompiler.utils.font_metrics import ratio_encre_em
 
 MARGE_ZONE = 2.0  # pt -- contexte autour de la bbox détectée ; une zone trop serrée nuit à Tesseract
+MARGE_PONCTUATION = 2.0
+DPI_PONCTUATION = 600
 
 
 def _hex_vers_rgb(hex_color: str) -> tuple:
@@ -203,7 +206,8 @@ def _epaisseur_trait_glyphe(d: dict):
     return 2 * aire / perimetre if perimetre > 0 else None
 
 
-def _epaisseur_mediane_zone(page_pymupdf, zone: BBox, seuil_recouvrement: float = 0.5):
+def _epaisseur_mediane_zone(page_pymupdf, zone: BBox, seuil_recouvrement: float = 0.5,
+                            dessins=None):
     """Épaisseur de trait MÉDIANE des glyphes vectoriels recouvrant `zone`
     (chaque glyphe est son propre `drawing` PyMuPDF dans ce document, un
     fill par lettre -- confirmé empiriquement, session du 26/09/2026).
@@ -238,7 +242,8 @@ def _epaisseur_mediane_zone(page_pymupdf, zone: BBox, seuil_recouvrement: float 
     vectoriel, ou zone vide).
     """
     valeurs = []
-    for d in page_pymupdf.get_drawings():
+    dessins = dessins if dessins is not None else page_pymupdf.get_drawings()
+    for d in dessins:
         r = d["rect"]
         ix0, iy0 = max(r.x0, zone.x0), max(r.y0, zone.y0)
         ix1, iy1 = min(r.x1, zone.x1), min(r.y1, zone.y1)
@@ -343,17 +348,85 @@ def _assigner_gras_relatif(mots):
 TOLERANCE_LIGNE = 2.0  # pt -- écart vertical max entre mots considérés sur la MÊME ligne visuelle
 
 
-def _assigner_taille_lissee(mots):
+def _ratio_encre_mot(mot):
+    texte = (mot.resolved_text or mot.text or "").strip()
+    ratio = ratio_encre_em(texte, mot.bold, mot.italic)
+    return ratio if ratio is not None and math.isfinite(ratio) and ratio > 0 else None
+
+
+def _ajuster_ligne_sur_traces(ligne, dessins, zones_par_mot):
+    """Calibre une ligne OCR sur l'encre vectorielle qui l'a produite."""
+    if not dessins:
+        return False
+
+    zones = [zones_par_mot.get(id(m)) for m in ligne]
+    zones = [zone for zone in zones if zone is not None]
+    if not zones:
+        return False
+    coords = [
+        (zone.x0, zone.y0, zone.x1, zone.y1) if isinstance(zone, BBox) else zone
+        for zone in zones
+    ]
+    zx0 = min(zone[0] for zone in coords)
+    zy0 = min(zone[1] for zone in coords)
+    zx1 = max(zone[2] for zone in coords)
+    zy1 = max(zone[3] for zone in coords)
+
+    line_y0 = min(m.bbox.y0 for m in ligne)
+    line_y1 = max(m.bbox.y1 for m in ligne)
+    traces = []
+    for dessin in dessins:
+        rect = dessin.get("rect")
+        if rect is None or rect.width <= 0 or rect.height <= 0:
+            continue
+        if rect.width > 30 or rect.height > 30:
+            continue
+        if rect.x1 <= zx0 or rect.x0 >= zx1 or rect.y1 <= zy0 or rect.y0 >= zy1:
+            continue
+        if rect.y1 <= line_y0 or rect.y0 >= line_y1:
+            continue
+        traces.append(rect)
+
+    ratios = [_ratio_encre_mot(m) for m in ligne]
+    ratios = [ratio for ratio in ratios if ratio is not None]
+    if not traces or not ratios:
+        return False
+
+    x0_traces = min(rect.x0 for rect in traces)
+    x1_traces = max(rect.x1 for rect in traces)
+    y0_traces = min(rect.y0 for rect in traces)
+    baseline = statistics.median(rect.y1 for rect in traces)
+    taille = (baseline - y0_traces) / max(ratios)
+    if taille <= 0:
+        return False
+
+    x0_ocr = min(m.bbox.x0 for m in ligne)
+    x1_ocr = max(m.bbox.x1 for m in ligne)
+    largeur_ocr = x1_ocr - x0_ocr
+    largeur_traces = x1_traces - x0_traces
+    if largeur_ocr > 0 and largeur_traces > 0:
+        echelle_x = largeur_traces / largeur_ocr
+        for mot in ligne:
+            mot.bbox.x0 = x0_traces + (mot.bbox.x0 - x0_ocr) * echelle_x
+            mot.bbox.x1 = x0_traces + (mot.bbox.x1 - x0_ocr) * echelle_x
+
+    for mot in ligne:
+        mot.font_size = taille
+        ratio = _ratio_encre_mot(mot)
+        if ratio is not None:
+            decalage_y = baseline - taille * ratio - mot.bbox.y0
+            mot.bbox.y0 += decalage_y
+            mot.bbox.y1 += decalage_y
+    return True
+
+
+def _assigner_taille_lissee(mots, dessins=None, zones_par_mot=None):
     """Lisse `font_size` par LIGNE VISUELLE plutôt que mot par mot --
-    PROXY GEOMETRIQUE, comme ink_ratio/bold (même session, cf.
-    _assigner_gras_relatif). La hauteur de bbox mesurée par l'OCR
-    (Paddle) a un bruit naturel de mesure d'un mot à l'autre ; en aval,
-    backend/rebuilt_pdf.py regroupe les mots en spans visuels et casse
-    le span dès que deux mots voisins ont une taille mesurée différant
-    de plus de 1.5pt (cf. _grouper_en_spans, tolérance de continuité) --
-    ce bruit NON LISSÉ se traduisait par des sauts de taille visibles au
-    sein d'une même ligne (ex. "DIRECTION"/"GÉNÉRALE DES"/"FINANCES
-    PUBLIQUES", session du 26/09/2026).
+    PROXY GEOMETRIQUE, comme stroke_width/bold (cf. _assigner_gras_relatif).
+    Les tracés source fournissent les limites d'encre et la baseline ; les
+    ratios des glyphes de la police de rendu convertissent cette hauteur en
+    corps, y compris pour les capitales accentuées. Repli sur les hauteurs
+    OCR calibrées par ratio si aucun tracé source n'est disponible.
 
     Modifie `mots` en place. Ne touche PAS les mots natifs -- leur
     font_size est déjà exact, extrait du flux PDF (cf.
@@ -363,10 +436,18 @@ def _assigner_taille_lissee(mots):
     if not candidats:
         return
     candidats.sort(key=lambda m: m.bbox.y0)
+    zones_par_mot = zones_par_mot or {}
 
     def _cloturer(ligne):
-        hauteurs = [m.bbox.y1 - m.bbox.y0 for m in ligne]
-        mediane = statistics.median(hauteurs)
+        if _ajuster_ligne_sur_traces(ligne, dessins, zones_par_mot):
+            return
+
+        tailles = []
+        for m in ligne:
+            ratio = _ratio_encre_mot(m)
+            hauteur = m.bbox.y1 - m.bbox.y0
+            tailles.append(hauteur / ratio if ratio is not None else hauteur)
+        mediane = statistics.median(tailles)
         for m in ligne:
             m.font_size = mediane
 
@@ -383,6 +464,53 @@ def _chevauche_bbox(a, b):
     """AABB overlap -- même logique que _chevauche dans tesseract.py,
     appliquée ici aux ZONES (après expansion par MARGE_ZONE)."""
     return not (a.x1 <= b.x0 or b.x1 <= a.x0 or a.y1 <= b.y0 or b.y1 <= a.y0)
+
+
+def _candidats_ponctuation(dessins, zones_vectorisees, mots_natifs):
+    """Repère les dessins très petits adjacents à du texte et correspondant
+    à la géométrie d'un ':' ou d'un '/'. L'OCR spécialisé confirme ensuite
+    le caractère avant qu'il soit ajouté au flux."""
+    ancres = [
+        (x0, y0, x1, y1) for x0, y0, x1, y1 in zones_vectorisees
+    ]
+    ancres.extend(
+        (mot.bbox.x0, mot.bbox.y0, mot.bbox.x1, mot.bbox.y1)
+        for mot in mots_natifs if mot.bbox
+    )
+    candidats = []
+    for dessin in dessins:
+        rect = dessin.get("rect")
+        if rect is None or rect.width <= 0 or rect.height <= 0:
+            continue
+        ratio = rect.width / rect.height
+        if 0.5 <= rect.width <= 1.5 and 3.0 <= rect.height <= 7.0:
+            symbole = ":"
+        elif 1.5 <= rect.width <= 4.0 and 4.0 <= rect.height <= 9.0 and 0.2 <= ratio <= 0.65:
+            symbole = "/"
+        else:
+            continue
+
+        a_gauche = False
+        a_droite = False
+        for x0, y0, x1, y1 in ancres:
+            recouvrement_y = min(rect.y1, y1) - max(rect.y0, y0)
+            if recouvrement_y / rect.height < 0.6:
+                continue
+            if x1 <= rect.x0 and rect.x0 - x1 <= 8.0:
+                a_gauche = True
+            if x0 >= rect.x1 and x0 - rect.x1 <= 8.0:
+                a_droite = True
+        if a_gauche and a_droite:
+            candidats.append((
+                symbole,
+                BBox(
+                    rect.x0 - MARGE_PONCTUATION,
+                    rect.y0 - MARGE_PONCTUATION,
+                    rect.x1 + MARGE_PONCTUATION,
+                    rect.y1 + MARGE_PONCTUATION,
+                ),
+            ))
+    return candidats
 
 
 def _fusionner_zones_chevauchantes(zones):
@@ -492,6 +620,7 @@ def recuperer_texte_vectorise(doc: Document, pdf_path: str, backends, lang: str 
             zones_a_traiter = _fusionner_zones_chevauchantes(zones_marginees)
 
             page_pymupdf = source[i]
+            dessins_page = page_pymupdf.get_drawings()
             # Les backends (tesseract.py, paddle.py) laissent id=-1 sur les
             # mots OCR en promettant une "renumérotation finale par
             # compile/compiler.py" -- vrai UNIQUEMENT pour page.resolved.words
@@ -503,6 +632,7 @@ def recuperer_texte_vectorise(doc: Document, pdf_path: str, backends, lang: str 
             # (impossible de savoir lequel de plusieurs -1 est référencé).
             prochain_id = max((w.id for w in mots_natifs_existants if w.id and w.id > 0), default=0) + 1
             mots_page = []  # accumulés avant extend -- cf. _assigner_gras_relatif (seuil PAR PAGE)
+            zones_par_mot = {}
             for zone in zones_a_traiter:
                 image, _ = rendre_zone_image(page_pymupdf, zone, dpi=dpi)
                 couleur_encre = _couleur_encre_zone(page, zone)
@@ -524,18 +654,67 @@ def recuperer_texte_vectorise(doc: Document, pdf_path: str, backends, lang: str 
                 # _epaisseur_mediane_zone. Remplace ink_ratio pour la decision
                 # `bold` (cf. _assigner_gras_relatif) ; ink_ratio reste calcule
                 # cote paddle.py a titre diagnostique (notes du mot) seulement.
-                epaisseur = _epaisseur_mediane_zone(page_pymupdf, zone)
                 for m in mots_valides:
                     m.id = prochain_id
                     prochain_id += 1
-                    epaisseur = _epaisseur_mediane_zone(page_pymupdf, m.bbox)
+                    epaisseur = _epaisseur_mediane_zone(
+                        page_pymupdf, m.bbox, dessins=dessins_page
+                    )
                     m.stroke_width = epaisseur
                     m.notes = list(m.notes or []) + [
                         f"stroke_width={epaisseur:.4f}" if epaisseur is not None else "stroke_width=None"
                     ]
+                    zones_par_mot[id(m)] = zone
                 mots_page.extend(mots_valides)
+
+            # Les ponctuations dessinées à part (:, /) ne passent pas le
+            # seuil de densité des zones vectorielles. On ne les OCRise que
+            # si leur géométrie et leur voisinage les signalent comme candidats.
+            methodes_ponctuation = [
+                backend.ocraliser_ponctuation
+                for backend in backends_utilisables.values()
+                if callable(getattr(backend, "ocraliser_ponctuation", None))
+            ]
+            candidats_ponctuation = (
+                _candidats_ponctuation(dessins_page, zones, mots_natifs_existants)
+                if methodes_ponctuation else []
+            )
+            for symbole, zone in candidats_ponctuation:
+                if any(
+                    mot.output_text == symbole and mot.bbox
+                    and _chevauche_bbox(mot.bbox, zone)
+                    for mot in mots_page
+                ):
+                    continue
+                image, _ = rendre_zone_image(
+                    page_pymupdf, zone, dpi=DPI_PONCTUATION
+                )
+                mots_ponctuation = []
+                for ocr_ponctuation in methodes_ponctuation:
+                    mots_ponctuation = ocr_ponctuation(
+                        image, symbole, offset=(zone.x0, zone.y0),
+                        lang=lang, dpi=DPI_PONCTUATION,
+                    )
+                    if mots_ponctuation:
+                        break
+                for mot in mots_ponctuation:
+                    if mot.output_text != symbole or _chevauche_natif(
+                        mot, mots_natifs_existants
+                    ):
+                        continue
+                    mot.id = prochain_id
+                    prochain_id += 1
+                    mot.stroke_width = _epaisseur_mediane_zone(
+                        page_pymupdf, mot.bbox, dessins=dessins_page
+                    )
+                    mot.notes = list(mot.notes or []) + [
+                        f"stroke_width={mot.stroke_width:.4f}"
+                        if mot.stroke_width is not None else "stroke_width=None"
+                    ]
+                    zones_par_mot[id(mot)] = zone
+                    mots_page.append(mot)
             _assigner_gras_relatif(mots_page)
-            _assigner_taille_lissee(mots_page)
+            _assigner_taille_lissee(mots_page, dessins_page, zones_par_mot)
             page.native.words.extend(mots_page)
     finally:
         source.close()

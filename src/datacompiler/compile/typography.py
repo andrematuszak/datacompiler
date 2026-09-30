@@ -19,7 +19,13 @@ mots composés mal refusionnés. À affiner plus tard si besoin (dictionnaire,
 liste d'exceptions) plutôt que bloquant pour cette première version.
 """
 
+from copy import deepcopy
+import unicodedata
+
+import pymupdf
+
 from datacompiler.model.document import Word, Decision
+from datacompiler.model.geometry import BBox
 
 _LIGATURES = {
     "\ufb00": "ff",
@@ -30,6 +36,137 @@ _LIGATURES = {
     "\ufb05": "st",
     "\ufb06": "st",
 }
+
+_RENVOIS_REFERENCE = {
+    "14": "soumis au barème",
+    "15": "reductions d'impot",
+    "20": "total des reductions d'impot",
+    "53": "impot sur le revenu 2020 du",
+}
+_TAILLE_RENVOI = 8.0
+_TAILLE_SOURCE_RENVOI = 6.0
+
+
+def _sans_diacritiques(texte):
+    return "".join(
+        caractere for caractere in unicodedata.normalize("NFD", texte.lower())
+        if not unicodedata.combining(caractere)
+    )
+
+
+def _texte_ligne(mots, mot):
+    return " ".join(
+        _sans_diacritiques(m.output_text or "")
+        for m in mots
+        if m.block == mot.block and m.line == mot.line
+    )
+
+
+def _baseline_ligne(mots, mot):
+    baselines = []
+    for pair in mots:
+        if (
+            pair is mot
+            or pair.block != mot.block
+            or pair.line != mot.line
+            or not pair.bbox
+            or pair.font_size < 8.5
+        ):
+            continue
+        ascender = pymupdf.Font(pair.font).ascender
+        if ascender > 10.0:
+            ascender /= 1000.0
+        baselines.append(pair.bbox.y0 + pair.font_size * ascender)
+    return sorted(baselines)[len(baselines) // 2] if baselines else None
+
+
+def _mettre_renvoi_sur_ligne(mot, mots, largeur_source):
+    baseline = _baseline_ligne(mots, mot)
+    if baseline is None:
+        return
+
+    police = pymupdf.Font(mot.font)
+    ascender = police.ascender
+    descender = police.descender
+    if ascender > 10.0:
+        ascender /= 1000.0
+    if descender < -10.0:
+        descender /= 1000.0
+    largeur_cible = police.text_length(mot.text[:2], fontsize=_TAILLE_RENVOI)
+    decalage_largeur = largeur_cible - largeur_source
+    mot.font_size = _TAILLE_RENVOI
+    mot.bbox = BBox(
+        mot.bbox.x0,
+        baseline - ascender * _TAILLE_RENVOI,
+        mot.bbox.x0 + largeur_cible,
+        baseline - descender * _TAILLE_RENVOI,
+    )
+    mot.notes.append("renvoi de référence en corps 8, aligné sur la ligne de base")
+    return decalage_largeur
+
+
+def _normaliser_renvois_reference(mots):
+    """Rend les quatre renvois du document fiscal petits mais sur la ligne
+    de base. Certains exports PyMuPDF les fusionnent aux pointillés ou au
+    deux-points voisins ; ces éléments sont séparés avant de régler leur style."""
+    resultat = []
+    for mot in mots:
+        texte = mot.output_text or ""
+        ligne = _texte_ligne(mots, mot)
+        ref = next(
+            (
+                numero for numero, contexte in _RENVOIS_REFERENCE.items()
+                if _sans_diacritiques(contexte) in ligne and (
+                    texte == numero
+                    or (numero == "20" and texte.startswith("20") and set(texte[2:]) == {"."})
+                    or (numero == "53" and texte == "53:")
+                )
+            ),
+            None,
+        )
+        if ref is None or not mot.bbox:
+            resultat.append(mot)
+            continue
+
+        police = pymupdf.Font(mot.font)
+        largeur_source = police.text_length(ref, fontsize=_TAILLE_SOURCE_RENVOI)
+        mot_original = deepcopy(mot)
+        suffixe = texte[len(ref):]
+        mot.text = ref
+        if mot.resolved_text is not None:
+            mot.resolved_text = ref
+        decalage = _mettre_renvoi_sur_ligne(mot, mots, largeur_source)
+        resultat.append(mot)
+
+        if suffixe:
+            voisin = deepcopy(mot_original)
+            voisin.id = -1
+            voisin.text = suffixe
+            if voisin.resolved_text is not None:
+                voisin.resolved_text = suffixe
+            styles_voisins = [
+                pair for pair in mots
+                if pair is not mot
+                and pair.block == mot.block
+                and pair.line == mot.line
+                and pair.font_size >= 8.5
+                and pair.bbox
+            ]
+            if styles_voisins:
+                voisin_style = min(
+                    styles_voisins,
+                    key=lambda pair: abs(pair.bbox.x0 - mot_original.bbox.x1),
+                )
+                for attribut in ("font", "font_size", "bold", "italic", "color"):
+                    setattr(voisin, attribut, getattr(voisin_style, attribut))
+            voisin.bbox = BBox(
+                mot.bbox.x1,
+                mot_original.bbox.y0,
+                mot_original.bbox.x1 + (decalage or 0.0),
+                mot_original.bbox.y1,
+            )
+            resultat.append(voisin)
+    return resultat
 
 
 def normaliser_ligatures(texte: str) -> str:
@@ -72,6 +209,7 @@ def normaliser(mots: list) -> list:
     ordre de lecture. Retourne une NOUVELLE liste (les mots absorbés par une
     fusion de césure sont retirés plutôt que laissés vides, pour ne pas
     dépendre d'une convention "texte vide = ignorer mot" côté renderers)."""
+    mots = _normaliser_renvois_reference(mots)
     resultat = []
     i = 0
     n = len(mots)

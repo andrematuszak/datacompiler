@@ -175,6 +175,46 @@ def _ocraliser_zone_image(image, lang: str, dpi: int, offset: tuple = (0.0, 0.0)
     return mots
 
 
+def _ocraliser_ponctuation_zone_image(
+    image, symbole: str, lang: str, dpi: int, offset: tuple = (0.0, 0.0)
+) -> list:
+    """Reconnaît un ':' ou '/' vectoriel isolé dans une zone géométriquement
+    pré-identifiée. PSM 13 conserve ces glyphes très petits même quand
+    Tesseract leur attribue une confiance nulle."""
+    if symbole not in (":", "/"):
+        return []
+
+    donnees = pytesseract.image_to_data(
+        image,
+        lang=lang,
+        config="--psm 13 -c tessedit_char_whitelist=:/",
+        output_type=pytesseract.Output.DICT,
+    )
+    scale = dpi / 72.0
+    dx, dy = offset
+    mots = []
+    for i, texte in enumerate(donnees["text"]):
+        if texte.strip() != symbole:
+            continue
+        x0 = dx + donnees["left"][i] / scale
+        y0 = dy + donnees["top"][i] / scale
+        x1 = x0 + donnees["width"][i] / scale
+        y1 = y0 + donnees["height"][i] / scale
+        confiance_brute = float(donnees["conf"][i])
+        mots.append(Word(
+            id=-1,
+            text=symbole,
+            resolved_text=symbole,
+            bbox=BBox(x0, y0, x1, y1),
+            confidence=confiance_brute / 100.0 if confiance_brute >= 0 else None,
+            source="ocr_vectoriel",
+            is_vectorized=True,
+            reconstructed=True,
+            notes=["ponctuation vectorielle récupérée par OCR ciblé"],
+        ))
+    return mots
+
+
 def _parser_image(image, lang: str, scale: float) -> list:
     """Fait tourner Tesseract sur UNE image déjà rendue (stratégie à deux
     passes, cf. _extraire_deux_passes) et retourne une liste de Word --
@@ -233,3 +273,11 @@ class TesseractBackend(OcrBackend):
       
     def ocraliser_zone(self, image, offset: tuple = (0.0, 0.0), lang: str = None, dpi: int = None, **kwargs) -> list:
         return _ocraliser_zone_image(image, lang or self.lang, dpi or self.dpi, offset)
+
+    def ocraliser_ponctuation(
+        self, image, symbole: str, offset: tuple = (0.0, 0.0),
+        lang: str = None, dpi: int = None,
+    ) -> list:
+        return _ocraliser_ponctuation_zone_image(
+            image, symbole, lang or self.lang, dpi or self.dpi, offset
+        )

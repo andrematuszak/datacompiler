@@ -171,6 +171,79 @@ def test_natif_pas_de_recalage():
              bool(tailles) and abs(tailles[0] - 9.5) < 1e-6, f"tailles trouvées = {tailles}")
 
 
+def test_texte_vectorise_compresse_horizontalement_sans_reduire_le_corps():
+    mot = Word(
+        id=20, text="DIRECTION", bbox=BBox(10, 10, 30, 18),
+        is_vectorized=True, reconstructed=True, font_size=12.0,
+        resolved_text="DIRECTION",
+    )
+    page_json = Page(
+        number=1, width=595.0, height=842.0,
+        native=NativeContainer(words=[mot]),
+        graphics=GraphicsContainer(tables=[]),
+        resolved=ResolvedContainer(words=[mot]),
+    )
+    doc = Document(
+        pages=[page_json],
+        metadata=Metadata(source_pdf="/fake/vector-size.pdf", filename="t.pdf"),
+    )
+    pymupdf_stub._FAKE_SOURCES["/fake/vector-size.pdf"] = [
+        pymupdf_stub.Page(595, 842)
+    ]
+
+    _docs_crees.clear()
+    rebuilt_pdf.render_rebuilt_pdf(
+        doc, "/tmp/test_vector_size.pdf", source_pdf="/fake/vector-size.pdf"
+    )
+    output_page = _docs_crees[-1]._pages[0]
+    writes = [write for write in output_page.writes if write["morph"] is not None]
+    verifier("Le texte vectorisé utilise une transformation horizontale", bool(writes))
+    if writes:
+        verifier("Le texte inchangé utilise une couche invisible sur ses tracés source",
+                 writes[0]["render_mode"] == 3)
+        morph = writes[0]["morph"]
+        verifier("La transformation conserve l'échelle verticale",
+                 morph[1].a < 1 and morph[1].d == 1)
+        tailles = [
+            fontsize
+            for write in writes
+            for (_, texte, _, fontsize) in write["items"]
+            if texte == "DIRECTION"
+        ]
+        verifier("Le corps de police n'est pas réduit pour tenir dans la bbox",
+                 tailles == [12.0], f"tailles trouvées = {tailles}")
+
+
+def test_correction_du_texte_vectorise_reste_visible():
+    mot = Word(
+        id=21, text="DIRECTION", bbox=BBox(10, 10, 50, 18),
+        is_vectorized=True, reconstructed=True, font_size=10.0,
+        resolved_text="DIRECTION CORRIGÉE",
+    )
+    page_json = Page(
+        number=1, width=595.0, height=842.0,
+        native=NativeContainer(words=[mot]),
+        graphics=GraphicsContainer(tables=[]),
+        resolved=ResolvedContainer(words=[mot]),
+    )
+    doc = Document(
+        pages=[page_json],
+        metadata=Metadata(source_pdf="/fake/vector-correction.pdf", filename="t.pdf"),
+    )
+    pymupdf_stub._FAKE_SOURCES["/fake/vector-correction.pdf"] = [
+        pymupdf_stub.Page(595, 842)
+    ]
+
+    _docs_crees.clear()
+    rebuilt_pdf.render_rebuilt_pdf(
+        doc, "/tmp/test_vector_correction.pdf", source_pdf="/fake/vector-correction.pdf"
+    )
+    writes = _docs_crees[-1]._pages[0].writes
+
+    verifier("Le texte vectorisé corrigé est rendu visible",
+             bool(writes) and all(write["render_mode"] == 0 for write in writes))
+
+
 def test_pas_simple_sort_true():
     """Garde-fou statique : rebuilt_pdf.py ne doit JAMAIS APPELER
     ordonner(..., simple_sort=True). Recherche restreinte à un appel

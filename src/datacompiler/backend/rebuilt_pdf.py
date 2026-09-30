@@ -150,7 +150,13 @@ def _copier_images_et_dessins(src_page, dst_page, report, exclure=None):
                 continue
 
         if shape:
-            shape.finish(color=color, fill=fill, width=width, dashes=dashes)
+            shape.finish(
+                color=color,
+                fill=fill,
+                width=width,
+                dashes=dashes,
+                even_odd=draw.get("even_odd", False),
+            )
 
     shape.commit()
     report["dessins_ignores"] = report.get("dessins_ignores", 0) + dessins_ignores

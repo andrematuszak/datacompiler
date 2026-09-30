@@ -31,6 +31,7 @@ RATIO_LARGEUR_HAUTEUR_MIN = 1.13  # une ligne de texte est nettement plus large 
 # de texte retenue voisine sur la même ligne, pour que l'OCR voie "avis :" d'un seul tenant.
 ECART_MAX_RATTACHEMENT = 8.0      # pt -- écart horizontal max entre le petit glyphe et la zone voisine
 RECOUVREMENT_VERTICAL_MIN = 0.6   # part de la hauteur du glyphe qui doit chevaucher la zone
+DIMENSION_MAX_ELEMENT_GLYPHE = 30.0  # pt -- écarte les filets et fonds de cellules
 
 
 def _elements_vectoriels(page) -> list:
@@ -39,15 +40,31 @@ def _elements_vectoriels(page) -> list:
     .lines/.curves/.rects, chacun avec un attribut .bbox -- comme dans le
     modèle d'origine. À confirmer si ça a changé dans la réorganisation."""
     elements = []
-    for l in getattr(page.graphics, "lines", []):
-        if l.bbox:
-            elements.append(l.bbox)
-    for c in getattr(page.graphics, "curves", []):
-        if c.bbox:
-            elements.append(c.bbox)
-    for r in getattr(page.graphics, "rects", []):
-        if r.bbox and (r.bbox.y1 - r.bbox.y0) < HAUTEUR_MAX_LIGNE_TEXTE:
-            elements.append(r.bbox)
+    for line in getattr(page.graphics, "lines", []):
+        if not line.bbox:
+            continue
+        largeur = line.bbox.x1 - line.bbox.x0
+        hauteur = line.bbox.y1 - line.bbox.y0
+        # Les longs filets relient plusieurs lignes d'en-tête en un seul groupe.
+        if max(largeur, hauteur) <= DIMENSION_MAX_ELEMENT_GLYPHE:
+            elements.append(line.bbox)
+    elements.extend(
+        curve.bbox
+        for curve in getattr(page.graphics, "curves", [])
+        if curve.bbox
+    )
+    for rect in getattr(page.graphics, "rects", []):
+        if not rect.bbox:
+            continue
+        largeur = rect.bbox.x1 - rect.bbox.x0
+        hauteur = rect.bbox.y1 - rect.bbox.y0
+        # Conserve la limite des petits rectangles-glyphes et écarte les
+        # grands rectangles servant de fond aux cellules.
+        if (
+            hauteur < HAUTEUR_MAX_LIGNE_TEXTE
+            and max(largeur, hauteur) <= DIMENSION_MAX_ELEMENT_GLYPHE
+        ):
+            elements.append(rect.bbox)
     return elements
 
 

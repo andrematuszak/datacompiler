@@ -133,6 +133,41 @@ def test_id_coherence_couleur_echantillonnee():
                  est_blanc, f"couleur obtenue = {couleur}")
 
 
+def test_copie_dessins_preserve_le_remplissage_even_odd(monkeypatch):
+    dessin = {
+        "rect": pymupdf_stub.Rect(10, 10, 20, 20),
+        "items": [("re", pymupdf_stub.Rect(10, 10, 20, 20))],
+        "color": None,
+        "fill": (0.0, 0.0, 0.0),
+        "width": 1.0,
+        "dashes": None,
+        "even_odd": True,
+    }
+    source = pymupdf_stub.Page(drawings=[dessin])
+    destination = pymupdf_stub.Page()
+    finitions = []
+
+    class ShapeCapture:
+        def draw_rect(self, rect):
+            pass
+
+        def finish(self, **kwargs):
+            finitions.append(kwargs)
+
+        def commit(self):
+            pass
+
+        def __bool__(self):
+            return True
+
+    monkeypatch.setattr(destination, "new_shape", lambda: ShapeCapture())
+
+    rebuilt_pdf._copier_images_et_dessins(source, destination, {})
+
+    assert len(finitions) == 1
+    assert finitions[0]["even_odd"] is True
+
+
 # --- Instrumentation : capture le document de sortie -----------------------
 # render_rebuilt_pdf() ne retourne que le chemin, pas l'objet Document --
 # on intercepte pymupdf.open() sans argument (toujours le doc de SORTIE dans

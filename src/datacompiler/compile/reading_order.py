@@ -190,6 +190,31 @@ def _grouper_par_ligne_tolerant(mots, tolerance=TOLERANCE_LIGNE):
     return resultat
 
 
+def _ordonner_items_par_ligne(items, tolerance=TOLERANCE_LIGNE):
+    """Fusionne dans une même ligne les blocs dont le y0 diffère légèrement,
+    puis les lit de gauche à droite. Le tri final par y0 seul séparait parfois
+    les fragments natifs et vectorisés d'une même ligne."""
+    items_tries = sorted(items, key=lambda item: item[0])
+    lignes = []
+    ligne_courante = []
+    y_ref = None
+    for item in items_tries:
+        if ligne_courante and abs(item[0] - y_ref) <= tolerance:
+            ligne_courante.append(item)
+        else:
+            if ligne_courante:
+                lignes.append(ligne_courante)
+            ligne_courante = [item]
+            y_ref = item[0]
+    if ligne_courante:
+        lignes.append(ligne_courante)
+
+    resultat = []
+    for ligne in lignes:
+        resultat.extend(sorted(ligne, key=lambda item: item[1]))
+    return resultat
+
+
 class Boite:
     """Région rectangulaire regroupant un ou plusieurs mots déjà reconnus
     comme faisant partie de la même ligne physique (native ou vectorisée).
@@ -604,36 +629,83 @@ def ordonner(page, simple_sort=False) -> list:
     #    réabsorber un encadré dans une rangée voisine : chaque encadré
     #    reste un bloc contigu dans le résultat, quel que soit ce qui le
     #    chevauche verticalement par ailleurs.
-    items = [(reperes_satellites.get(id(boite), boite.y0), _grouper_par_ligne_tolerant(boite.mots))
-             for boite in boites_ordonnees]
+    items = []
+    for rangee in _rangees_def:
+        boites_principales = [
+            boite for boite in rangee if id(boite) not in reperes_satellites
+        ]
+        if boites_principales:
+            mots_rangee = [
+                mot
+                for boite in boites_principales
+                for mot in _grouper_par_ligne_tolerant(boite.mots)
+            ]
+            mots_rangee.sort(key=lambda mot: mot.bbox.x0)
+            items.append((
+                min(boite.y0 for boite in boites_principales),
+                min(boite.x0 for boite in boites_principales),
+                mots_rangee,
+            ))
+        for boite in rangee:
+            if id(boite) in reperes_satellites:
+                items.append((
+                    reperes_satellites[id(boite)],
+                    boite.x0,
+                    _grouper_par_ligne_tolerant(boite.mots),
+                ))
     for mots_encadre in mots_par_encadre.values():
         y0_repere = min(w.bbox.y0 for w in mots_encadre)
-        items.append((y0_repere, _ordonner_sous_ensemble(mots_encadre)))
-    items.sort(key=lambda item: item[0])
-
-    resultat = []
-    for _y0, mots in items:
-        resultat.extend(mots)
+        x0_repere = min(w.bbox.x0 for w in mots_encadre)
+        items.append((y0_repere, x0_repere, _ordonner_sous_ensemble(mots_encadre)))
 
     # 5. RÉINTÉGRATION : mots de table, ordonnés PAR TABLE via sa propre grille de
     #    cellules (cf. _ordonner_mots_table) plutôt qu'un tri plat unique
-    #    sur l'ensemble des tables mélangées. Tables elles-mêmes triées par
-    #    y0 -- l'ordre de page.graphics.tables n'est pas garanti être déjà
-    #    l'ordre de lecture (dépend de pdfplumber.find_tables()).
+    #    sur l'ensemble des tables mélangées. Chaque table redevient un bloc
+    #    de lecture ancré à sa position physique, au lieu d'être ajoutée après
+    #    tout le texte hors tableau.
     #
     #    Un mot n'est assigné qu'à la PREMIÈRE table qui le capte (retiré
     #    du bassin avant de passer à la suivante) -- protège contre une
     #    duplication si deux tables détectées ont des bbox qui se
     #    chevauchent (cas non rencontré sur le document de test, mais pas
     #    à exclure sur un autre document).
+    mots_tables_natifs = []
     if mots_dans_table:
         tables_triees = sorted(tables, key=lambda t: t.bbox.y0 if t.bbox else 0.0)
         bassin = list(mots_dans_table)
         for table in tables_triees:
             mots_de_cette_table = [w for w in bassin if _dans_un_tableau(w, [table])]
             if mots_de_cette_table:
-                resultat.extend(_ordonner_mots_table(mots_de_cette_table, table))
+                mots_ordonnes_table = _ordonner_mots_table(mots_de_cette_table, table)
+                if any(getattr(w, "is_vectorized", False) for w in mots_de_cette_table):
+                    items.append((
+                        min(w.bbox.y0 for w in mots_ordonnes_table),
+                        min(w.bbox.x0 for w in mots_ordonnes_table),
+                        mots_ordonnes_table,
+                    ))
+                else:
+                    # Conserver l'ordre historique des tableaux purement
+                    # natifs; le déplacement à leur ancre physique corrige
+                    # ici le cas page 2 où l'OCR vectoriel des en-têtes de
+                    # tableau était ajouté après tout le reste de la page.
+                    mots_tables_natifs.extend(mots_ordonnes_table)
                 dejas_assignes = {id(w) for w in mots_de_cette_table}
                 bassin = [w for w in bassin if id(w) not in dejas_assignes]
+
+        if bassin:
+            if any(getattr(w, "is_vectorized", False) for w in bassin):
+                mots_restants_table = _grouper_par_ligne_tolerant(bassin)
+                items.append((
+                    min(w.bbox.y0 for w in bassin),
+                    min(w.bbox.x0 for w in bassin),
+                    mots_restants_table,
+                ))
+            else:
+                mots_tables_natifs.extend(sorted(bassin, key=lambda w: (w.bbox.y0, w.bbox.x0)))
+
+    resultat = []
+    for _y0, _x0, mots in _ordonner_items_par_ligne(items):
+        resultat.extend(mots)
+    resultat.extend(mots_tables_natifs)
 
     return resultat

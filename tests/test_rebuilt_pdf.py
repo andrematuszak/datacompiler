@@ -171,6 +171,42 @@ def test_natif_pas_de_recalage():
              bool(tailles) and abs(tailles[0] - 9.5) < 1e-6, f"tailles trouvées = {tailles}")
 
 
+def test_exposant_natif_conserve_sa_position_verticale():
+    mots = [
+        Word(id=30, text="barème", bbox=BBox(154.38, 376.68, 186.59, 389.73),
+             block=1, is_vectorized=False, font_size=9.5),
+        Word(id=31, text="14", bbox=BBox(189.23, 377.44, 195.90, 385.68),
+             block=1, is_vectorized=False, font_size=6.0),
+    ]
+    page_json = Page(
+        number=1, width=595.0, height=842.0,
+        native=NativeContainer(words=mots),
+        graphics=GraphicsContainer(tables=[]),
+        resolved=ResolvedContainer(words=mots),
+    )
+    doc = Document(
+        pages=[page_json],
+        metadata=Metadata(source_pdf="/fake/superscript.pdf", filename="t.pdf"),
+    )
+    pymupdf_stub._FAKE_SOURCES["/fake/superscript.pdf"] = [
+        pymupdf_stub.Page(595, 842)
+    ]
+
+    _docs_crees.clear()
+    rebuilt_pdf.render_rebuilt_pdf(
+        doc, "/tmp/test_superscript.pdf", source_pdf="/fake/superscript.pdf"
+    )
+    output_page = _docs_crees[-1]._pages[0]
+    positions = {
+        texte.strip(): (point.y, fontsize)
+        for write in output_page.writes
+        for point, texte, _font, fontsize in write["items"]
+    }
+
+    assert positions["14"][1] == 6.0
+    assert positions["14"][0] < positions["barème"][0] - 1.0
+
+
 def test_texte_vectorise_compresse_horizontalement_sans_reduire_le_corps():
     mot = Word(
         id=20, text="DIRECTION", bbox=BBox(10, 10, 30, 18),

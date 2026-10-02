@@ -8,15 +8,14 @@ Les tracés PyMuPDF sont conservés durant l'extraction dans ``page.graphics``.
 Le diagnostic regroupe ensuite les zones denses et retient seulement celles
 qui ne contiennent pas déjà de mot natif : aucun PDF n'est rouvert ici.
 
-LIMITE ASSUMÉE, à vérifier sur vos vrais fichiers : le modèle de données
+LIMITE ASSUMÉE : le modèle de données
 (GraphicVector) ne stocke qu'une bbox par élément, pas le tracé détaillé
 (points, direction des courbes) -- cette heuristique ne "reconnaît" donc
 pas des lettres, elle repère seulement une zone dense et de forme
 suspecte. Un logo abstrait dense (pas du texte) peut déclencher un faux
 positif -- à traiter comme un signal à confirmer, pas un verdict certain.
-Je n'ai pas pu tester sur un vrai fichier contenant ce cas (aucun dans le
-corpus de test jusqu'ici) -- testé uniquement avec des données
-synthétiques ci-dessous.
+Le filtrage des primitives structurelles est aussi vérifié sur la fixture
+fiscale multipage, qui contient des tableaux vectoriels.
 """
 
 from typing import List, Tuple
@@ -25,6 +24,7 @@ SEUIL_DENSITE_MIN = 8            # nb d'éléments vectoriels minimum dans une z
 HAUTEUR_MAX_LIGNE_TEXTE = 25.0   # pt -- au-delà, ça ne ressemble plus à une ligne de texte
 HAUTEUR_MIN_LIGNE_TEXTE = 4.0
 RATIO_LARGEUR_HAUTEUR_MIN = 1.13  # une ligne de texte est nettement plus large que haute
+TAILLE_MAX_ELEMENT_TEXTE = 30.0  # pt -- les cellules et bordures dépassent la taille d'un glyphe
 # Petits glyphes isolés (":" = 2 points, "la", ponctuation) : trop étroits pour passer le
 # filtre de ratio, et dessinés à 3-4 pt du mot voisin (> tolérance de regroupement). On ne
 # les envoie pas à l'OCR seuls (un ":" isolé n'est pas détecté) : on les RATTACHE à la zone
@@ -35,18 +35,27 @@ RECOUVREMENT_VERTICAL_MIN = 0.6   # part de la hauteur du glyphe qui doit chevau
 
 def _elements_vectoriels(page) -> list:
     """Rassemble lignes, courbes et rects fins (souvent utilisés pour des
-    traits de lettres) en une seule liste de bbox. Suppose page.graphics a
-    .lines/.curves/.rects, chacun avec un attribut .bbox -- comme dans le
-    modèle d'origine. À confirmer si ça a changé dans la réorganisation."""
+    traits de lettres) en une seule liste de bbox. Exclut les lignes et
+    rectangles dépassant la taille d'un glyphe : les bords et fonds des
+    cellules de formulaire sont des primitives vectorielles, mais les joindre
+    aux glyphes fusionne toute une rangée en une seule zone OCR. Les courbes
+    restent incluses, car les contours de glyphes du document sont encodés
+    sous cette forme."""
     elements = []
     for l in getattr(page.graphics, "lines", []):
-        if l.bbox:
+        if l.bbox and max(
+            l.bbox.x1 - l.bbox.x0, l.bbox.y1 - l.bbox.y0
+        ) <= TAILLE_MAX_ELEMENT_TEXTE:
             elements.append(l.bbox)
     for c in getattr(page.graphics, "curves", []):
         if c.bbox:
             elements.append(c.bbox)
     for r in getattr(page.graphics, "rects", []):
-        if r.bbox and (r.bbox.y1 - r.bbox.y0) < HAUTEUR_MAX_LIGNE_TEXTE:
+        if (
+            r.bbox
+            and r.bbox.y1 - r.bbox.y0 < HAUTEUR_MAX_LIGNE_TEXTE
+            and r.bbox.x1 - r.bbox.x0 <= TAILLE_MAX_ELEMENT_TEXTE
+        ):
             elements.append(r.bbox)
     return elements
 

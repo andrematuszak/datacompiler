@@ -56,6 +56,21 @@ def test_ponctuation_vectorielle_du_bandeau_est_preservee_en_zone_ocr():
     assert crop.y1 - crop.y0 >= 20.0
 
 
+def test_zones_ocr_des_tableaux_sont_separees_par_cellule():
+    page = _page_2()
+    zones = zones_texte_vectorise_probable(page)
+    ligne_entetes = [
+        zone for zone in zones
+        if 85.0 <= zone[1] <= 95.0 and zone[3] <= 110.0
+    ]
+
+    assert len(ligne_entetes) == 5
+    assert all(zone[2] - zone[0] < 100.0 for zone in ligne_entetes)
+    assert sorted(zone[0] for zone in ligne_entetes) == pytest.approx(
+        [36.4, 149.6, 253.2, 362.6, 457.5], abs=2.0
+    )
+
+
 def test_entete_page_2_melange_natif_vectoriel_trie_gauche_a_droite():
     page = _page_2()
     page.native.words.extend([

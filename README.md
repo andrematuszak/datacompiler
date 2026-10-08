@@ -48,13 +48,13 @@ curl -O https://raw.githubusercontent.com/andrematuszak/datacompiler/main/exampl
 
 
 ```bash
-datacompiler examples/impots-revenu.pdf --strategy overlay
+datacompiler impots-revenu.pdf --strategy overlay
 ```
 
 OU
 
 ```bash
-datacompiler examples/impots-revenu.pdf --strategy rebuilt
+datacompiler impots-revenu.pdf --strategy rebuilt
 ```
 
 Les fichiers de sortie sont écrits **à côté du PDF source** (voir « Formats de sortie »).

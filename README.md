@@ -2,7 +2,7 @@
 
 **DataCompiler** est un pipeline complet de compilation, de traitement et de reconstruction de documents PDF. Il combine une extraction multi-moteurs, un diagnostic de la qualité native du texte, des étapes d'OCR intelligentes (globales ou ciblées) ainsi qu'un moteur d'arbitrage et de rendu dynamique multi-format.
 
-🌐 **Site web officiel :** [https://datacompiler.org](https://datacompiler.org) *(en cours de construction)*
+🌐 **Site web officiel :** [https://data-compiler.com](https://data-compiler.com) *(en cours de construction)*
 
 ---
 
@@ -36,15 +36,6 @@ py -3.11 -m venv .venv
 pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-py3-none-any.whl
 ```
 
-#### 3. Vérifier l'installation
-
-```bash
-python --version        # Python 3.11+ attendu
-datacompiler --help
-pip install -e ".[dev]" # outils de développement (pytest, ruff, black, mypy)
-pytest
-```
-
 ---
 
 ## 🚀 Quickstart (Démarrage Rapide)
@@ -52,7 +43,13 @@ pytest
 ### En ligne de commande
 
 ```bash
-datacompiler mon_document.pdf --strategy overlay
+datacompiler examples/impots-revenu.pdf --strategy overlay
+```
+
+OUT: Cela crée une nouvelle
+
+```bash
+datacompiler examples/impots-revenu.pdf --strategy rebuilt
 ```
 
 Les fichiers de sortie sont écrits **à côté du PDF source** (voir « Formats de sortie »).
@@ -128,19 +125,6 @@ Un fichier par exécution, selon `--strategy`, écrit à côté du PDF source :
 | `docx` | `<nom>_propre.docx` |
 
 Sauf avec `--no-json`, un `<nom>.document.json` (arbre de données et métadonnées) est aussi écrit.
-
----
-
-## 🧪 Tests
-
-Pour exécuter la suite de tests :
-
-```bash
-pip install -e ".[dev]"
-pytest
-```
-
-Les tests qui s'appuient sur le PDF de référence `tests/fixtures/impots-revenu/impots-revenu.pdf` sont ignorés (skip) si ce fichier est absent. `tests/test_regression_word_count.py` est aussi ignoré tant que les sorties de ce PDF n'ont pas été générées.
 
 ---
 

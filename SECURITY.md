@@ -4,7 +4,7 @@
 
 **Ne pas ouvrir d'issue publique.**
 
-Envoyer un email à : security@onemanlab.com
+Envoyer un email à : andre@matuszak.name
 (objet : `[VULN] DataCompiler — <titre court>`)
 
 ## Ce que nous couvrons

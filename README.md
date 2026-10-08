@@ -26,7 +26,7 @@ source .venv/bin/activate
 
 **Sur Windows (PowerShell) :**
 ```powershell
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -43,10 +43,15 @@ pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1
 ### En ligne de commande
 
 ```bash
+curl -O https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/impots-revenu.pdf
+```
+
+
+```bash
 datacompiler examples/impots-revenu.pdf --strategy overlay
 ```
 
-OUT: Cela crée une nouvelle
+OU
 
 ```bash
 datacompiler examples/impots-revenu.pdf --strategy rebuilt

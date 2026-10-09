@@ -33,7 +33,7 @@ py -3.12 -m venv .venv
 #### 2. Installation de DataCompiler
 
 ```bash
-pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-py3-none-any.whl
+pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_26_0_arm64.whl
 ```
 
 ---

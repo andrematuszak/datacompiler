@@ -19,20 +19,14 @@ PaddleOCR / PaddlePaddle sont installés automatiquement comme dépendances ; le
 
 ---
 
-### Installation du package Python
+### Installation
 
-#### 1. Création de l'environnement virtuel (Python 3.11+)
+**macOS Apple Silicon, Python 3.12 :**
 
 ```bash
-python3.12 -m venv .venv   # ou python3.11
+python3.12 -m venv .venv
 source .venv/bin/activate
-```
-
-#### 2. Installation de DataCompiler
-
-```bash
 pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_26_0_arm64.whl
-```
 
 ---
 

@@ -27,6 +27,7 @@ PaddleOCR / PaddlePaddle sont installés automatiquement comme dépendances ; le
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_12_0_arm64.whl
+```
 
 ---
 

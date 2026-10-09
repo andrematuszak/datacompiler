@@ -90,13 +90,12 @@ Ouverture parallèle du PDF via **PyMuPDF** et **pdfplumber**. Extraction native
 ### 🩺 2. Diagnostic (`frontend/diagnostic`)
 Analyse de l'intégrité du texte nativement extrait (score de qualité, symboles corrompus, couverture visuelle, détection de texte vectorisé/dessiné). Décide automatiquement si un OCR est nécessaire (`recommend_ocr = True`).
 
-### 🤖 3. OCR Page Entière (`frontend/ocr`)
-Backend **Mistral OCR** (clé `MISTRAL_API_KEY`). ⚠️ **Désactivé dans le flux actif en v0.1.0** :
-l'alignement global OCR ↔ texte natif n'est pas encore validé sans régression (duplication de mots).
-Seul l'OCR ciblé (étape 4) est actif.
+### 🤖 3. Traitement OCR Ciblé Zones Vectorisées (`frontend/ocr/vector_zones`) ou Page Entière (`frontend/ocr`)
+Le traitement OCR Page Entière de **PaddleOCR** se déclenche en cas de diagnostic OCR Pleine Page. L'alignement global OCR ↔ texte natif n'est pas encore validé sans régression (duplication de mots).
+L'OCR ciblé vise spécifiquement les zones de texte vectorisées ou masquées et comble les trous géométriques à l'aide de **PaddleOCR**.
 
-### 🎯 4. OCR Ciblé — Zones Vectorisées (`frontend/ocr/vector_zones`)
-Cible spécifiquement les zones de texte vectorisées ou masquées et comble les trous géométriques à l'aide de **PaddleOCR**.
+### ⚙️ 4. Segmentation (`layout/`)
+Suite au diagnostic de segmentation nécessaire (pages complexes), déclenchement de l'outil de segmentation (sections, tableaux, etc.) pour simuler un ordre de lecture naturel.
 
 ### ⚙️ 5. Compilation & Arbitrage (`compile/`)
 * Reconstitution de l'ordre de lecture et de l'arbre de mise en page (`LayoutBox`).

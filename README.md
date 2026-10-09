@@ -52,26 +52,29 @@ datacompiler impots-revenu.pdf --strategy rebuilt
 
 Les fichiers de sortie sont écrits **à côté du PDF source** (voir « Formats de sortie »).
 
-> **Note v0.1.0 :** le format de sortie est choisi par `--strategy` (`overlay`, `clean_overlay`,
-> `rasterized`, `flow`, `rebuilt`, `markdown`, `html`, `docx`). L'option `--format` est
-> actuellement acceptée mais **n'est pas prise en compte**.
+> **Note v0.1.0 :** le format de sortie est choisi par `--strategy`.
+> - **En ligne de commande** : `overlay` (défaut), `clean_overlay`, `rasterized`, `flow`, `rebuilt`.
+> - **En Python** : les mêmes, plus `markdown`, `html` et `docx`.
+>
+> L'option `--format` est acceptée mais **n'est pas prise en compte** : utilisez `--strategy`.
 
 ### En Python
 
 ```python
-from datacompiler.pipeline import executer_pipeline
+from datacompiler import executer_pipeline
 
 # Un appel = un format de sortie, choisi par `strategy`
 doc = executer_pipeline(
     "mon_document.pdf",
     strategy="overlay",      # overlay | clean_overlay | rasterized | flow | rebuilt | markdown | html | docx
-    ocr_mode="auto",         # auto | force | skip | vector
+    ocr_mode="auto",         # auto | vector | skip  (force : voir « Étape 3 »)
 )
 
 print(f"Document traité avec succès ! Nombre de pages : {len(doc.pages)}")
 ```
 
-Pour produire plusieurs formats, appelez `executer_pipeline` une fois par `strategy`.
+`executer_pipeline` retourne un objet `Document` (`doc.pages`, `doc.metadata`, `doc.diagnostic`, `doc.to_json()`).
+Pour produire plusieurs formats, appelez-la une fois par `strategy`.
 Un exemple exécutable est fourni dans [`examples/basic_usage.py`](examples/basic_usage.py) : sans argument, il génère un petit PDF d'exemple puis le traite ; avec un chemin en argument, il traite votre PDF.
 
 ---
@@ -81,7 +84,7 @@ Un exemple exécutable est fourni dans [`examples/basic_usage.py`](examples/basi
 Le pipeline se déroule en **6 étapes** (les logs affichent `[1/6]` … `[6/6]`) :
 
 ```
-📄 PDF Source ➔ [1. Extraction] ➔ [2. Diagnostic] ➔ [3. OCR Global] ➔ [4. OCR Ciblé] ➔ [5. Arbitrage] ➔ [6. Rendu] ➔ 📁 Fichiers Sortie
+📄 PDF Source ➔ [1. Extraction] ➔ [2. Diagnostic] ➔ [3. OCR ciblé] ➔ [4. Segmentation] ➔ [5. Compilation] ➔ [6. Rendu] ➔ 📁 Fichiers Sortie
 ```
 
 ### 🔍 1. Extraction (`frontend/extract`)
@@ -90,9 +93,17 @@ Ouverture parallèle du PDF via **PyMuPDF** et **pdfplumber**. Extraction native
 ### 🩺 2. Diagnostic (`frontend/diagnostic`)
 Analyse de l'intégrité du texte nativement extrait (score de qualité, symboles corrompus, couverture visuelle, détection de texte vectorisé/dessiné). Décide automatiquement si un OCR est nécessaire (`recommend_ocr = True`).
 
-### 🤖 3. Traitement OCR Ciblé Zones Vectorisées (`frontend/ocr/vector_zones`) ou Page Entière (`frontend/ocr`)
-Le traitement OCR Page Entière de **PaddleOCR** se déclenche en cas de diagnostic OCR Pleine Page. L'alignement global OCR ↔ texte natif n'est pas encore validé sans régression (duplication de mots).
-L'OCR ciblé vise spécifiquement les zones de texte vectorisées ou masquées et comble les trous géométriques à l'aide de **PaddleOCR**.
+### 🤖 3. Traitement OCR (`frontend/ocr`)
+En v0.1.0, seul l'**OCR ciblé** est actif : il vise les zones de texte vectorisées ou masquées et comble les trous géométriques à l'aide de **PaddleOCR**. Les modèles Paddle sont téléchargés au premier lancement (connexion Internet requise).
+
+L'**OCR pleine page** est **désactivé** dans cette version : l'alignement global OCR ↔ texte natif n'est pas encore validé sans régression (duplication de mots). Le diagnostic peut le recommander, mais il n'est pas exécuté.
+
+| `ocr_mode` / `--ocr-mode` | Comportement en v0.1.0 |
+|---|---|
+| `auto` (défaut) | OCR ciblé des zones vectorisées |
+| `vector` | OCR ciblé des zones vectorisées uniquement |
+| `skip` | Aucun OCR |
+| `force` | Sans effet pour l'instant (OCR pleine page désactivé) |
 
 ### ⚙️ 4. Segmentation (`layout/`)
 Suite au diagnostic de segmentation nécessaire (pages complexes), déclenchement de l'outil de segmentation (sections, tableaux, etc.) pour simuler un ordre de lecture naturel.
@@ -110,16 +121,16 @@ Génération des fichiers de sortie nettoyés dans les formats demandés.
 
 ## 📁 Formats de Sortie Générés
 
-Un fichier par exécution, selon `--strategy`, écrit à côté du PDF source :
+Un fichier par exécution, selon `strategy` (`--strategy` en CLI), écrit à côté du PDF source :
 
-| `--strategy` | Fichier produit |
-|---|---|
-| `overlay`, `clean_overlay`, `rasterized` | `<nom>_propre.pdf` |
-| `flow` | `<nom>_flow.pdf` |
-| `rebuilt` | `<nom>_rebuilt.pdf` |
-| `markdown` | `<nom>_propre.md` |
-| `html` | `<nom>_propre.html` |
-| `docx` | `<nom>_propre.docx` |
+| `strategy` | Fichier produit | Disponible en |
+|---|---|---|
+| `overlay`, `clean_overlay`, `rasterized` | `<nom>_propre.pdf` | CLI et Python |
+| `flow` | `<nom>_flow.pdf` | CLI et Python |
+| `rebuilt` | `<nom>_rebuilt.pdf` | CLI et Python |
+| `markdown` | `<nom>_propre.md` | Python uniquement |
+| `html` | `<nom>_propre.html` | Python uniquement |
+| `docx` | `<nom>_propre.docx` | Python uniquement |
 
 Sauf avec `--no-json`, un `<nom>.document.json` (arbre de données et métadonnées) est aussi écrit.
 

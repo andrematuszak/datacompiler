@@ -8,9 +8,14 @@
 
 ## ⚠️ Prérequis : version de Python
 
-DataCompiler requiert **Python 3.11 ou supérieur** (testé en **Python 3.12**, macOS).
-PaddleOCR / PaddlePaddle sont installés automatiquement comme dépendances ; le premier
-lancement de l'OCR ciblé peut télécharger les modèles Paddle (connexion Internet requise).
+DataCompiler requiert :
+- **macOS 12+** (Apple Silicon / ARM64)
+- **Python 3.12**
+
+> ⚠️ v0.1.0 : wheel binaire **macOS Apple Silicon uniquement**, Python 3.12 uniquement.
+> Les versions x86_64 et Python 3.11 ne sont pas encore fournies.
+
+PaddleOCR / PaddlePaddle sont installés automatiquement comme dépendances ; le premier lancement de l'OCR ciblé peut télécharger les modèles Paddle (connexion Internet requise).
 
 ---
 
@@ -18,16 +23,9 @@ lancement de l'OCR ciblé peut télécharger les modèles Paddle (connexion Inte
 
 #### 1. Création de l'environnement virtuel (Python 3.11+)
 
-**Sur macOS :**
 ```bash
 python3.12 -m venv .venv   # ou python3.11
 source .venv/bin/activate
-```
-
-**Sur Windows (PowerShell) :**
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
 ```
 
 #### 2. Installation de DataCompiler

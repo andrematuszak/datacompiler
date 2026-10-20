@@ -1,141 +1,92 @@
-# 📊 DataCompiler
+# DataCompiler
 
-**DataCompiler** est un pipeline complet de compilation, de traitement et de reconstruction de documents PDF. Il combine une extraction multi-moteurs, un diagnostic de la qualité native du texte, des étapes d'OCR intelligentes (globales ou ciblées) ainsi qu'un moteur d'arbitrage et de rendu dynamique multi-format.
+DataCompiler processes PDF documents and produces a reconstructed PDF. The public `0.1.0` release includes a wheel for **macOS 12+ on Apple Silicon (ARM64) with Python 3.12**.
 
-🌐 **Site web officiel :** [https://data-compiler.com](https://data-compiler.com) *(en cours de construction)*
+> This wheel does not support Intel Macs, Windows, or Linux. Installation instructions for those platforms are not provided here.
+>
+> The `0.1.0` wheel is the only published artifact verified here. The current code and packaging in `datacompiler-core` (0.2.0) are separate; its instructions should not be taken as verified documentation for this wheel.
 
----
+## Requirements and installation
 
-## ⚠️ Prérequis : version de Python
+Check that Python 3.12 is available:
 
-DataCompiler requiert :
-- **macOS 12+** (Apple Silicon / ARM64)
-- **Python 3.12**
+```bash
+python3.12 --version
+```
 
-> ⚠️ v0.1.0 : wheel binaire **macOS Apple Silicon uniquement**, Python 3.12 uniquement.
-> Les versions x86_64 et Python 3.11 ne sont pas encore fournies.
-
-PaddleOCR / PaddlePaddle sont installés automatiquement comme dépendances ; le premier lancement de l'OCR ciblé peut télécharger les modèles Paddle (connexion Internet requise).
-
----
-
-### Installation
-
-**macOS Apple Silicon, Python 3.12 :**
+Create and activate a virtual environment, then install the published `0.1.0` wheel:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_12_0_arm64.whl
+python -m pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_12_0_arm64.whl
 ```
 
----
-
-## 🚀 Quickstart (Démarrage Rapide)
-
-### En ligne de commande
+Verify the environment and that the command is available:
 
 ```bash
-curl -O https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/impots-revenu.pdf
+python --version
+python -m pip show datacompiler
+command -v datacompiler
 ```
 
+`python --version` should report Python 3.12. `command -v datacompiler` should return the path to the command installed in the virtual environment.
+
+For the `0.1.0` wheel, its release documentation says PaddleOCR and PaddlePaddle are installed automatically as dependencies. This public repository does not include a `pyproject.toml` or the package source, so its dependency metadata cannot be checked here. For `datacompiler-core` 0.2.0, Paddle is required for the normal reconstruction workflow; the current manifest places it in the `[ocr]` extra, and its default installation is being aligned with that use. This source-code configuration is not a verified installation command for the `0.1.0` wheel.
+
+## CLI quickstart
+
+Download the sample PDF, then explicitly run the `rebuilt` strategy:
 
 ```bash
-datacompiler impots-revenu.pdf --strategy overlay
-```
-
-OU
-
-```bash
+curl -L -o impots-revenu.pdf https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/impots-revenu.pdf
 datacompiler impots-revenu.pdf --strategy rebuilt
 ```
 
-Les fichiers de sortie sont écrits **à côté du PDF source** (voir « Formats de sortie »).
+The `0.1.0` release README documents the output of this strategy as `impots-revenu_rebuilt.pdf`, next to the source file. It also says that an `impots-revenu.document.json` file containing the document and its metadata is written, unless `--no-json` is used. These filenames are documented for `0.1.0`, but could not be verified by running the wheel. Paddle is required for the reconstruction workflow; the models may be downloaded during the first targeted OCR run, which requires an Internet connection.
 
-> **Note v0.1.0 :** le format de sortie est choisi par `--strategy`.
-> - **En ligne de commande** : `overlay` (défaut), `clean_overlay`, `rasterized`, `flow`, `rebuilt`.
-> - **En Python** : les mêmes, plus `markdown`, `html` et `docx`.
->
-> L'option `--format` est acceptée mais **n'est pas prise en compte** : utilisez `--strategy`.
+`rebuilt` is the recommended workflow. In the current `datacompiler-core` 0.2.0 README, it is also the default CLI strategy: running without options is documented to produce `document_rebuilt.pdf`. Use `--strategy rebuilt` to make the choice explicit and consistent regardless of the default.
 
-### En Python
+> The `0.1.0` documentation in this repository also lists `overlay`, `clean_overlay`, `rasterized`, and `flow`. They are not described here because reconstruction is the intended workflow. That documentation says `--format` is accepted but ignored; use `--strategy`.
+
+## Python usage
+
+The example included in this repository imports the function from `datacompiler.pipeline`:
 
 ```python
-from datacompiler import executer_pipeline
+from datacompiler.pipeline import executer_pipeline
 
-# Un appel = un format de sortie, choisi par `strategy`
-doc = executer_pipeline(
-    "mon_document.pdf",
-    strategy="overlay",      # overlay | clean_overlay | rasterized | flow | rebuilt | markdown | html | docx
-    ocr_mode="auto",         # auto | vector | skip  (force : voir « Étape 3 »)
-)
-
-print(f"Document traité avec succès ! Nombre de pages : {len(doc.pages)}")
+doc = executer_pipeline("impots-revenu.pdf", strategy="rebuilt", ocr_mode="auto")
+print(f"Pages processed: {len(doc.pages)}")
 ```
 
-`executer_pipeline` retourne un objet `Document` (`doc.pages`, `doc.metadata`, `doc.diagnostic`, `doc.to_json()`).
-Pour produire plusieurs formats, appelez-la une fois par `strategy`.
-Un exemple exécutable est fourni dans [`examples/basic_usage.py`](examples/basic_usage.py) : sans argument, il génère un petit PDF d'exemple puis le traite ; avec un chemin en argument, il traite votre PDF.
+Each call to `executer_pipeline` produces one format, selected by `strategy`. The current `datacompiler-core` README documents `strategy="rebuilt"` and the public import `from datacompiler import executer_pipeline`; the example in this repository uses `from datacompiler.pipeline import executer_pipeline`. The `0.1.0` wheel source is not present here, so its preferred import cannot be independently confirmed beyond the included example. This repository's README describes the returned object as a `Document` with `pages`, `metadata`, `diagnostic`, and `to_json()`.
 
----
+The [`examples/basic_usage.py`](examples/basic_usage.py) script is a historical `0.1.0` example that uses `overlay`; it does not represent the recommended reconstruction workflow above. From a clone of this repository, it generates a sample PDF and processes it:
 
-## ⚙️ Architecture & Pipeline de Fonctionnement
-
-Le pipeline se déroule en **6 étapes** (les logs affichent `[1/6]` … `[6/6]`) :
-
-```
-📄 PDF Source ➔ [1. Extraction] ➔ [2. Diagnostic] ➔ [3. OCR ciblé] ➔ [4. Segmentation] ➔ [5. Compilation] ➔ [6. Rendu] ➔ 📁 Fichiers Sortie
+```bash
+python examples/basic_usage.py
 ```
 
-### 🔍 1. Extraction (`frontend/extract`)
-Ouverture parallèle du PDF via **PyMuPDF** et **pdfplumber**. Extraction native du texte, des polices, des images, des éléments vectoriels et reconstruction des tableaux dans le modèle standardisé `Document`.
+When given a file path, it processes that PDF, still using `overlay`:
 
-### 🩺 2. Diagnostic (`frontend/diagnostic`)
-Analyse de l'intégrité du texte nativement extrait (score de qualité, symboles corrompus, couverture visuelle, détection de texte vectorisé/dessiné). Décide automatiquement si un OCR est nécessaire (`recommend_ocr = True`).
+```bash
+python examples/basic_usage.py my_document.pdf
+```
 
-### 🤖 3. Traitement OCR (`frontend/ocr`)
-En v0.1.0, seul l'**OCR ciblé** est actif : il vise les zones de texte vectorisées ou masquées et comble les trous géométriques à l'aide de **PaddleOCR**. Les modèles Paddle sont téléchargés au premier lancement (connexion Internet requise).
+## OCR and version differences
 
-L'**OCR pleine page** est **désactivé** dans cette version : l'alignement global OCR ↔ texte natif n'est pas encore validé sans régression (duplication de mots). Le diagnostic peut le recommander, mais il n'est pas exécuté.
+The `0.1.0` release README in this repository says that only **targeted OCR** is active: it processes vectorized or hidden text regions. Full-page OCR is not run; according to that documentation, `force` does not enable full-page OCR. PaddleOCR/PaddlePaddle are required for the normal reconstruction workflow in `datacompiler-core` 0.2.0; the models may need to be downloaded on first use. Do not apply `datacompiler-core` packaging options to the `0.1.0` wheel without checking its dependencies.
 
-| `ocr_mode` / `--ocr-mode` | Comportement en v0.1.0 |
+| `ocr_mode` / `--ocr-mode` option in the `0.1.0` documentation | Documented behavior |
 |---|---|
-| `auto` (défaut) | OCR ciblé des zones vectorisées |
-| `vector` | OCR ciblé des zones vectorisées uniquement |
-| `skip` | Aucun OCR |
-| `force` | Sans effet pour l'instant (OCR pleine page désactivé) |
+| `auto` (default) | Targeted OCR on vectorized regions |
+| `vector` | Targeted OCR on vectorized regions |
+| `skip` | No OCR |
+| `force` | No effect on full-page OCR, which is disabled |
 
-### ⚙️ 4. Segmentation (`layout/`)
-Suite au diagnostic de segmentation nécessaire (pages complexes), déclenchement de l'outil de segmentation (sections, tableaux, etc.) pour simuler un ordre de lecture naturel.
+The options and OCR behavior in this table come from earlier `0.1.0` documentation; they could not be compared with the wheel implementation, which is not included in this repository. The current `datacompiler-core` README describes newer code and does not verify the wheel's behavior. The documentation describes one output format per run; to generate multiple formats, make one Python call per strategy.
 
-### ⚙️ 5. Compilation & Arbitrage (`compile/`)
-* Reconstitution de l'ordre de lecture et de l'arbre de mise en page (`LayoutBox`).
-* Normalisation typographique (ligatures, césures).
-* Alignement géométrique natif ↔ OCR.
-* Résolution des conflits et évaluation de confiance QA.
+## Example and license
 
-### 📦 6. Backend de Rendu (`backend/`)
-Génération des fichiers de sortie nettoyés dans les formats demandés.
-
----
-
-## 📁 Formats de Sortie Générés
-
-Un fichier par exécution, selon `strategy` (`--strategy` en CLI), écrit à côté du PDF source :
-
-| `strategy` | Fichier produit | Disponible en |
-|---|---|---|
-| `overlay`, `clean_overlay`, `rasterized` | `<nom>_propre.pdf` | CLI et Python |
-| `flow` | `<nom>_flow.pdf` | CLI et Python |
-| `rebuilt` | `<nom>_rebuilt.pdf` | CLI et Python |
-| `markdown` | `<nom>_propre.md` | Python uniquement |
-| `html` | `<nom>_propre.html` | Python uniquement |
-| `docx` | `<nom>_propre.docx` | Python uniquement |
-
-Sauf avec `--no-json`, un `<nom>.document.json` (arbre de données et métadonnées) est aussi écrit.
-
----
-
-## 📜 Licence
-
-Projet sous licence propriétaire — tous droits réservés. Voir le fichier [LICENSE](LICENSE).
+The sample PDF is available at [`examples/impots-revenu.pdf`](examples/impots-revenu.pdf). The project is distributed under a proprietary license; see [`LICENSE`](LICENSE).

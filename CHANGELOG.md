@@ -4,7 +4,7 @@ All notable changes to **DataCompiler** are documented in this file.
 
 This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-10-20
 
 ### Added
 - **Reconstructed PDF workflow** as the default and recommended CLI behavior. Reconstructed text follows the resolved reading order, while unchanged vector glyphs, images, and non-text drawings are preserved.
@@ -17,17 +17,17 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 - `rebuilt` is the normal CLI strategy; `clean_overlay` is deprecated and falls back to `rebuilt` with a warning.
+- Published the CPython 3.12 wheel for Apple Silicon on macOS 26.0 or later: [download](https://github.com/andrematuszak/datacompiler-core/releases/download/v0.2.0/datacompiler-0.2.0-cp312-cp312-macosx_26_0_arm64.whl).
 - Improved reconstructed PDF rendering to preserve the appearance of vector glyphs and prevent glyphs from disappearing.
 - Python support is declared as 3.11 or later; Python 3.12 is documented as tested.
 - Development and test tools are provided through the `[dev]` optional dependency group rather than required runtime dependencies.
 - The legacy `examples/basic_usage.py` script has been removed. The README and the sample PDF in `examples/` are the usage guide and input example.
 
 ### Notes
-- PaddleOCR and PaddlePaddle are required for the targeted OCR used by the normal reconstructed-PDF workflow. The current `datacompiler-core` manifest still lists them in the `[ocr]` extra; align the package metadata with the intended default installation before publishing.
+- PaddlePaddle and PaddleOCR are base dependencies for the normal reconstructed-PDF workflow. The published wheel is tagged `macosx_26_0_arm64`; no other platform wheel is listed in the release.
 - Full-page Mistral OCR remains disabled in the documented active workflow because global OCR-to-native text alignment has not been validated.
 - DeepL translation sends segment text to the DeepL service and requires a user-provided API key. COMETKiwi quality scores are not calibrated probabilities.
 - GUI editing requires Tkinter and a graphical desktop session.
-- The `0.2.0` release is marked unreleased here; package behavior and distribution assets must be verified before publishing.
 
 ## [0.1.0] - 2026-10-07
 
@@ -55,4 +55,5 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - The `0.1.0` CLI documentation says `--format` is accepted but ignored; use `--strategy`.
 - One output format is produced per run, and output files are written next to the source PDF.
 
+[0.2.0]: https://github.com/andrematuszak/datacompiler-core/releases/tag/v0.2.0
 [0.1.0]: https://github.com/andrematuszak/datacompiler/releases/tag/v0.1.0

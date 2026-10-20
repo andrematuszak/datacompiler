@@ -1,10 +1,8 @@
 # DataCompiler
 
-DataCompiler processes PDF documents and produces a reconstructed PDF. The public `0.1.0` release includes a wheel for **macOS 12+ on Apple Silicon (ARM64) with Python 3.12**.
+DataCompiler processes PDF documents and produces a reconstructed PDF. The published `0.2.0` wheel targets **Python 3.12 on Apple Silicon (ARM64) running macOS 26.0 or later**.
 
-> This wheel does not support Intel Macs, Windows, or Linux. Installation instructions for those platforms are not provided here.
->
-> The `0.1.0` wheel is the only published artifact verified here. The current code and packaging in `datacompiler-core` (0.2.0) are separate; its instructions should not be taken as verified documentation for this wheel.
+> This wheel is tagged `macosx_26_0_arm64`; it is not a universal wheel. The `0.2.0` release lists no wheel for Intel Macs, Windows, Linux, or earlier macOS versions. The `0.1.0` wheel remains available from the earlier [public-repository release](https://github.com/andrematuszak/datacompiler/releases/tag/v0.1.0).
 
 ## Requirements and installation
 
@@ -14,12 +12,12 @@ Check that Python 3.12 is available:
 python3.12 --version
 ```
 
-Create and activate a virtual environment, then install the published `0.1.0` wheel:
+Create and activate a virtual environment, then install the published `0.2.0` wheel:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.1.0/datacompiler-0.1.0-cp312-cp312-macosx_12_0_arm64.whl
+python -m pip install https://github.com/andrematuszak/datacompiler-core/releases/download/v0.2.0/datacompiler-0.2.0-cp312-cp312-macosx_26_0_arm64.whl
 ```
 
 Verify the environment and that the command is available:
@@ -32,46 +30,44 @@ command -v datacompiler
 
 `python --version` should report Python 3.12. `command -v datacompiler` should return the path to the command installed in the virtual environment.
 
-For the `0.1.0` wheel, its release documentation says PaddleOCR and PaddlePaddle are installed automatically as dependencies. This public repository does not include a `pyproject.toml` or the package source, so its dependency metadata cannot be checked here. For `datacompiler-core` 0.2.0, Paddle is required for the normal reconstruction workflow; the current manifest places it in the `[ocr]` extra, and its default installation is being aligned with that use. This source-code configuration is not a verified installation command for the `0.1.0` wheel.
+PaddlePaddle and PaddleOCR are installed as base dependencies for the normal reconstruction workflow. The first OCR run may download model files and require an Internet connection.
 
 ## CLI quickstart
 
-Download the sample PDF, then explicitly run the `rebuilt` strategy:
+Download the sample PDF, then run the recommended `rebuilt` strategy:
 
 ```bash
 curl -L -o impots-revenu.pdf https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/impots-revenu.pdf
-datacompiler impots-revenu.pdf --strategy rebuilt
+datacompiler impots-revenu.pdf
 ```
 
-The `0.1.0` release README documents the output of this strategy as `impots-revenu_rebuilt.pdf`, next to the source file. It also says that an `impots-revenu.document.json` file containing the document and its metadata is written, unless `--no-json` is used. These filenames are documented for `0.1.0`, but could not be verified by running the wheel. Paddle is required for the reconstruction workflow; the models may be downloaded during the first targeted OCR run, which requires an Internet connection.
+The command creates `impots-revenu_rebuilt.pdf` next to the source file. To select the strategy explicitly, add `--strategy rebuilt`.
 
-`rebuilt` is the recommended workflow. In the current `datacompiler-core` 0.2.0 README, it is also the default CLI strategy: running without options is documented to produce `document_rebuilt.pdf`. Use `--strategy rebuilt` to make the choice explicit and consistent regardless of the default.
-
-> The `0.1.0` documentation in this repository also lists `overlay`, `clean_overlay`, `rasterized`, and `flow`. They are not described here because reconstruction is the intended workflow. That documentation says `--format` is accepted but ignored; use `--strategy`.
+`rebuilt` is the default and recommended workflow. `clean_overlay` is deprecated and redirects to `rebuilt` with a warning. Other output formats and strategies are available; for example, `--format faithful-pdf` requires an explicit `overlay` or `rasterized` strategy.
 
 ## Python usage
 
 ```python
-from datacompiler.pipeline import executer_pipeline
+from datacompiler import executer_pipeline
 
-doc = executer_pipeline("impots-revenu.pdf", strategy="rebuilt", ocr_mode="auto")
-print(f"Pages processed: {len(doc.pages)}")
+document = executer_pipeline("impots-revenu.pdf", strategy="rebuilt")
+print(f"Pages processed: {len(document.pages)}")
 ```
 
-Each call to `executer_pipeline` produces one format, selected by `strategy`. The current `datacompiler-core` README documents `strategy="rebuilt"` and the public import `from datacompiler import executer_pipeline`. The import used by the `0.1.0` wheel cannot be independently confirmed because the wheel source is not present here. This repository's README describes the returned object as a `Document` with `pages`, `metadata`, `diagnostic`, and `to_json()`.
+`executer_pipeline` writes a reconstructed PDF by default and returns the processed document.
 
-## OCR and version differences
+## OCR
 
-The `0.1.0` release README in this repository says that only **targeted OCR** is active: it processes vectorized or hidden text regions. Full-page OCR is not run; according to that documentation, `force` does not enable full-page OCR. PaddleOCR/PaddlePaddle are required for the normal reconstruction workflow in `datacompiler-core` 0.2.0; the models may need to be downloaded on first use. Do not apply `datacompiler-core` packaging options to the `0.1.0` wheel without checking its dependencies.
+The pipeline uses PaddleOCR for targeted OCR of vector-text regions. In the default `auto` mode, it determines the language from native PDF text when possible. Full-page OCR is not implemented in this version.
 
-| `ocr_mode` / `--ocr-mode` option in the `0.1.0` documentation | Documented behavior |
+| `ocr_mode` / `--ocr-mode` option | Behavior |
 |---|---|
-| `auto` (default) | Targeted OCR on vectorized regions |
-| `vector` | Targeted OCR on vectorized regions |
-| `skip` | No OCR |
-| `force` | No effect on full-page OCR, which is disabled |
+| `auto` (default) | Targeted vector-text OCR; language is inferred from native text when possible |
+| `vector` | Targeted vector-text OCR |
+| `skip` | Disables OCR; not recommended for the normal reconstruction workflow |
+| `force` | Not implemented |
 
-The options and OCR behavior in this table come from earlier `0.1.0` documentation; they could not be compared with the wheel implementation, which is not included in this repository. The current `datacompiler-core` README describes newer code and does not verify the wheel's behavior. The documentation describes one output format per run; to generate multiple formats, make one Python call per strategy.
+Scanned documents without usable native text do not receive full-page OCR. One output format is produced per run.
 
 ## Sample PDF and license
 

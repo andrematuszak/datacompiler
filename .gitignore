@@ -47,6 +47,8 @@ eggs/
 *_propre.json
 *document.json
 *repomap.json
+*.xlf
+*.layout.json
 
 # --- Sensible & Secrets ---
 anciens/

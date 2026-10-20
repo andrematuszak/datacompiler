@@ -51,8 +51,6 @@ The `0.1.0` release README documents the output of this strategy as `impots-reve
 
 ## Python usage
 
-The example included in this repository imports the function from `datacompiler.pipeline`:
-
 ```python
 from datacompiler.pipeline import executer_pipeline
 
@@ -60,19 +58,7 @@ doc = executer_pipeline("impots-revenu.pdf", strategy="rebuilt", ocr_mode="auto"
 print(f"Pages processed: {len(doc.pages)}")
 ```
 
-Each call to `executer_pipeline` produces one format, selected by `strategy`. The current `datacompiler-core` README documents `strategy="rebuilt"` and the public import `from datacompiler import executer_pipeline`; the example in this repository uses `from datacompiler.pipeline import executer_pipeline`. The `0.1.0` wheel source is not present here, so its preferred import cannot be independently confirmed beyond the included example. This repository's README describes the returned object as a `Document` with `pages`, `metadata`, `diagnostic`, and `to_json()`.
-
-The [`examples/basic_usage.py`](examples/basic_usage.py) script is a historical `0.1.0` example that uses `overlay`; it does not represent the recommended reconstruction workflow above. From a clone of this repository, it generates a sample PDF and processes it:
-
-```bash
-python examples/basic_usage.py
-```
-
-When given a file path, it processes that PDF, still using `overlay`:
-
-```bash
-python examples/basic_usage.py my_document.pdf
-```
+Each call to `executer_pipeline` produces one format, selected by `strategy`. The current `datacompiler-core` README documents `strategy="rebuilt"` and the public import `from datacompiler import executer_pipeline`. The import used by the `0.1.0` wheel cannot be independently confirmed because the wheel source is not present here. This repository's README describes the returned object as a `Document` with `pages`, `metadata`, `diagnostic`, and `to_json()`.
 
 ## OCR and version differences
 
@@ -87,6 +73,6 @@ The `0.1.0` release README in this repository says that only **targeted OCR** is
 
 The options and OCR behavior in this table come from earlier `0.1.0` documentation; they could not be compared with the wheel implementation, which is not included in this repository. The current `datacompiler-core` README describes newer code and does not verify the wheel's behavior. The documentation describes one output format per run; to generate multiple formats, make one Python call per strategy.
 
-## Example and license
+## Sample PDF and license
 
-The sample PDF is available at [`examples/impots-revenu.pdf`](examples/impots-revenu.pdf). The project is distributed under a proprietary license; see [`LICENSE`](LICENSE).
+The sample input PDF is available at [`examples/impots-revenu.pdf`](examples/impots-revenu.pdf). Use the CLI or Python quickstart above to process it. The project is distributed under a proprietary license; see [`LICENSE`](LICENSE).

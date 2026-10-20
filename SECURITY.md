@@ -1,25 +1,27 @@
-# Politique de sécurité
+# Security Policy
 
-## Signaler une vulnérabilité
+## Reporting a Vulnerability
 
-**Ne pas ouvrir d'issue publique.**
+**Do not open a public issue.**
 
-Envoyer un email à : andre@matuszak.name
-(objet : `[VULN] DataCompiler — <titre court>`)
+Send an email to: andre@matuszak.name
 
-## Ce que nous couvrons
+Subject: `[VULN] DataCompiler — <short title>`
 
-- Vulnérabilités dans le pipeline de traitement PDF
-- Fuite de données entre exécutions
-- Problèmes de droits d'accès aux fichiers
+## Scope
 
-## Ce que nous ne couvrons pas
+We cover:
 
-- Questions d'usage ou bugs fonctionnels → ouvrir une issue
-- Vulnérabilités dans les dépendances tierces (PyMuPDF, etc.)
-  → signaler au mainteneur de la dépendance
+- Vulnerabilities in the PDF processing pipeline
+- Data leakage between runs
+- File permission issues
 
-## Délais
+We do not cover:
 
-- Accusé de réception : sous 48 h
-- Correction : sous 30 jours (ou notification si plus long)   
+- Usage questions or functional bugs — open an issue
+- Vulnerabilities in third-party dependencies (such as PyMuPDF) — report them to the dependency maintainer
+
+## Response Times
+
+- Acknowledgment: within 48 hours
+- Fix: within 30 days, or notification if more time is needed

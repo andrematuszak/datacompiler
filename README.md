@@ -17,7 +17,7 @@ Create and activate a virtual environment, then install the published `0.2.0` wh
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install https://github.com/andrematuszak/datacompiler-core/releases/download/v0.2.0/datacompiler-0.2.0-cp312-cp312-macosx_26_0_arm64.whl
+python -m pip install https://github.com/andrematuszak/datacompiler/releases/download/v0.2.0/datacompiler-0.2.0-cp312-cp312-macosx_26_0_arm64.whl
 ```
 
 Verify the environment and that the command is available:

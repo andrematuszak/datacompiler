@@ -34,27 +34,72 @@ PaddlePaddle and PaddleOCR are installed as base dependencies for the normal rec
 
 ## CLI quickstart
 
-Download the sample PDF, then run the recommended `rebuilt` strategy:
+Download the sample, then run with or without an optional strategy. The default mode is compilation & transcription.
+
+**Mixed document: glyphs and native text**
+
+The default mode is a compilation and transcription into a file that is faithful to the source and rebuilt in the original format.
 
 ```bash
-curl -L -o impots-revenu.pdf https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/impots-revenu.pdf
-datacompiler impots-revenu.pdf
+curl -L -o tax-notice.pdf https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/tax-notice.pdf
+datacompiler tax-notice.pdf
 ```
 
-The command creates `impots-revenu_rebuilt.pdf` next to the source file. To select the strategy explicitly, add `--strategy rebuilt`.
+The command creates `tax-notice_rebuilt.pdf` next to the source file. See other formats and strategies below.
 
-`rebuilt` is the default and recommended workflow. `clean_overlay` is deprecated and redirects to `rebuilt` with a warning. Other output formats and strategies are available; for example, `--format faithful-pdf` requires an explicit `overlay` or `rasterized` strategy.
+
+**Handwritten scan**
+
+The default mode is a compilation and transcription into a text in the original format.
+
+You need an active **OpenRouter API key** in your environment variables.
+Step 1: Get an OpenRouter API Key
+
+1. Go to [OpenRouter](https://openrouter.ai/).
+2. Sign up for a free account or log in.
+3. Navigate to your account settings or directly to the [API Keys dashboard](https://openrouter.ai/keys).
+4. Click **Create Key**, give it a descriptive name (e.g., `datacompiler-key`), and generate it.
+5. **Copy the key** immediately and store it securely (it will only be shown once).
+
+---
+
+Step 2: Set the Environment Variable and run the program
+
+Before running the command, you need to expose your API key to your terminal session. Choose one of the methods below:
+
+Run this command in your terminal, replacing `your_openrouter_api_key_here` with your actual key:
+```bash
+export OPENROUTER_API_KEY="your_openrouter_api_key_here"
+curl -L -o polish.pdf https://raw.githubusercontent.com/andrematuszak/datacompiler/main/examples/polish.pdf
+datacompiler polish.pdf
+```
+
+The command creates `polish_rebuilt.pdf` next to the source file. See other formats and strategies below.
+
+
+## Other formats and strategies
+
+Other output formats and strategies are available; for example, `--format faithful-pdf` requires an explicit `overlay` or `rasterized` strategy.
+
+
+## Other modes
+
+**Translation**
+
+Use `--translate [language locale]` to translate the content of the file.
+
 
 ## Python usage
 
 ```python
 from datacompiler import executer_pipeline
 
-document = executer_pipeline("impots-revenu.pdf", strategy="rebuilt")
+document = executer_pipeline("tax-notice.pdf", strategy="rebuilt")
 print(f"Pages processed: {len(document.pages)}")
 ```
 
 `executer_pipeline` writes a reconstructed PDF by default and returns the processed document.
+
 
 ## OCR
 
@@ -69,6 +114,7 @@ The default `auto` mode routes each page based on its diagnostic. Native text is
 
 `force` remains unimplemented; automatic routing is the supported full-page OCR path. One output format is produced per run.
 
-## Sample PDF and license
 
-The sample input PDF is available at [`examples/impots-revenu.pdf`](examples/impots-revenu.pdf). Use the CLI or Python quickstart above to process it. The project is distributed under a proprietary license; see [`LICENSE`](LICENSE).
+## Sample files and license
+
+The samples are available in the folder [`examples`]. Use the CLI or Python quickstart above to process it. The project is distributed under a proprietary license; see [`LICENSE`](LICENSE).

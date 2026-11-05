@@ -4,6 +4,26 @@ All notable changes to **DataCompiler** are documented in this file.
 
 This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-05
+
+### Added
+- Automatic page-level OCR routing for native text, targeted OCR, and full-page scan transcription.
+- Full-page OCR through OpenRouter-hosted NVIDIA models, with multiple model candidates available for review.
+- Saved OCR review sessions and a browser-based interface for resolving disagreements between candidate transcriptions.
+- Page-level language and OCR-routing information in processed documents.
+- XLIFF line-aware translation units that preserve source line boundaries and geometry when translated text is rendered to PDF.
+
+### Changed
+- The default `auto` mode now selects full-page OCR for eligible scans while keeping native-text and vector-text processing on their specialized paths.
+- Added the optional `openai` extra for OpenRouter OCR; Mistral and Qwen integrations remain optional.
+- DeepL English targets use explicit locale codes such as `EN-US`.
+- Prepared the release link for the CPython 3.12 Apple Silicon wheel targeting macOS 26.0 or later: [download](https://github.com/andrematuszak/datacompiler/releases/download/v0.3.0/datacompiler-0.3.0-cp312-cp312-macosx_26_0_arm64.whl).
+
+### Fixed
+- Improved handling of incomplete or provider-specific vision-model responses.
+- Preserved XLIFF ordering and source geometry when importing reviewed translations.
+- Corrected OCR routing and result normalization across supported backends.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added
@@ -56,4 +76,5 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - One output format is produced per run, and output files are written next to the source PDF.
 
 [0.2.0]: https://github.com/andrematuszak/datacompiler-core/releases/tag/v0.2.0
+[0.3.0]: https://github.com/andrematuszak/datacompiler/releases/tag/v0.3.0
 [0.1.0]: https://github.com/andrematuszak/datacompiler/releases/tag/v0.1.0
